@@ -155,6 +155,38 @@ const Popup: React.FC = () => {
     }
   };
 
+  const downloadBrailleTxt = () => {
+    if (!currentSummarization) return;
+    let txt = '';
+    if (currentSummarization.summary.text) {
+      txt += 'Summary:\n' + currentSummarization.summary.text + '\n\n';
+    }
+    if (currentSummarization.summary.keyPoints?.length) {
+      txt += 'Key Points:\n';
+      currentSummarization.summary.keyPoints.forEach((kp, i) => {
+        txt += `${i + 1}. ${kp}\n`;
+      });
+      txt += '\n';
+    }
+    if (currentSummarization.flashcards?.length) {
+      txt += 'Flashcards:\n';
+      currentSummarization.flashcards.forEach((card, i) => {
+        txt += `Q${i + 1}: ${card.question}\nA${i + 1}: ${card.answer}\nType: ${card.type}, Difficulty: ${card.difficulty}`;
+        if (card.tags?.length) txt += `, Tags: ${card.tags.join(', ')}`;
+        txt += '\n\n';
+      });
+    }
+    const blob = new Blob([txt], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `summary_flashcards_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const exportAsText = () => {
     if (currentSummarization?.summary && currentSummarization?.flashcards) {
       const title = currentSummarization.summary.topics.length > 0 
@@ -327,6 +359,14 @@ const Popup: React.FC = () => {
                 className="text-orange-500 hover:text-orange-600 text-sm"
               >
                 📄 Download Text
+              </button>
+            )}
+            {currentSummarization && (
+              <button
+                onClick={downloadBrailleTxt}
+                className="text-pink-500 hover:text-pink-600 text-sm"
+              >
+                ⠿ Export as .txt (Braille)
               </button>
             )}
             {currentSummarization?.summary && currentSummarization?.flashcards && (
