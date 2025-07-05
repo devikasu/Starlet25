@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
 import { SummarizationResult, Summary } from '../utils/summarizer';
 import { downloadAsTxt } from '../utils/fileExport';
+import { listenForCommand } from '../utils/voiceCommand';
 import FlashcardViewer from '../components/FlashcardViewer';
 
 interface StoredText {
@@ -144,6 +145,13 @@ const Popup: React.FC = () => {
     }
   };
 
+  const handleVoiceCommand = () => {
+    listenForCommand(() => {
+      // Trigger the same logic as the extract button
+      extractCurrentPage();
+    });
+  };
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
@@ -241,6 +249,14 @@ const Popup: React.FC = () => {
           className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
           {loading ? 'Re-scanning...' : 'Re-scan Current Page'}
+        </button>
+
+        <button
+          onClick={handleVoiceCommand}
+          disabled={loading}
+          className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
+        >
+          🎙️ Voice Command
         </button>
 
         {error && (
