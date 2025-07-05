@@ -23,16 +23,72 @@ const Popup: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
+  const [accessibilityEnabled, setAccessibilityEnabled] = useState<boolean>(false);
+  const [accessibilityLoading, setAccessibilityLoading] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'summary' | 'flashcards'>('summary');
 
   useEffect(() => {
     loadStoredTexts();
+    loadAccessibilityStatus();
   }, []);
+
+  const loadAccessibilityStatus = async () => {
+    try {
+      const result = await chrome.storage.local.get(['accessibilityEnabled']);
+      setAccessibilityEnabled(result.accessibilityEnabled === true);
+    } catch (err) {
+      console.error('Error loading accessibility status:', err);
+    }
+  };
+
+  const toggleAccessibility = async () => {
+    setAccessibilityLoading(true);
+    try {
+      const newState = !accessibilityEnabled;
+      await chrome.storage.local.set({ accessibilityEnabled: newState });
+      setAccessibilityEnabled(newState);
+      
+      // Send message to background script to handle the toggle
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ 
+          action: 'TOGGLE_ACCESSIBILITY', 
+          enabled: newState 
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      
+      if (response && (response as any).success) {
+        console.log('Starlet25: Accessibility toggled successfully');
+      } else {
+        throw new Error('Failed to toggle accessibility');
+      }
+    } catch (err) {
+      console.error('Error toggling accessibility:', err);
+      setError('Failed to toggle accessibility');
+    } finally {
+      setAccessibilityLoading(false);
+    }
+  };
 
   const loadStoredTexts = async () => {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'GET_STORED_TEXTS' });
-      if (response && response.texts) {
-        setStoredTexts(response.texts);
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: 'GET_STORED_TEXTS' }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      
+      if (response && (response as any).texts) {
+        setStoredTexts((response as any).texts);
       }
     } catch (err) {
       console.error('Error loading stored texts:', err);
@@ -44,18 +100,27 @@ const Popup: React.FC = () => {
     setError('');
     
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' });
-      if (response.success) {
-        setCurrentText(response.text);
-        if (response.processed) {
-          setCurrentProcessed(response.processed);
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      
+      if ((response as any).success) {
+        setCurrentText((response as any).text);
+        if ((response as any).processed) {
+          setCurrentProcessed((response as any).processed);
         }
-        if (response.summarization) {
-          setCurrentSummarization(response.summarization);
+        if ((response as any).summarization) {
+          setCurrentSummarization((response as any).summarization);
         }
         await loadStoredTexts(); // Refresh the list
       } else {
-        setError(response.error || 'Failed to extract text');
+        setError((response as any).error || 'Failed to extract text');
       }
     } catch (err) {
       setError('Error extracting text from current page');
@@ -69,18 +134,27 @@ const Popup: React.FC = () => {
     setError('');
     
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' });
-      if (response.success) {
-        setCurrentText(response.text);
-        if (response.processed) {
-          setCurrentProcessed(response.processed);
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      
+      if ((response as any).success) {
+        setCurrentText((response as any).text);
+        if ((response as any).processed) {
+          setCurrentProcessed((response as any).processed);
         }
-        if (response.summarization) {
-          setCurrentSummarization(response.summarization);
+        if ((response as any).summarization) {
+          setCurrentSummarization((response as any).summarization);
         }
         await loadStoredTexts(); // Refresh the list
       } else {
-        setError(response.error || 'Failed to re-scan page');
+        setError((response as any).error || 'Failed to re-scan page');
       }
     } catch (err) {
       setError('Error re-scanning page');
@@ -91,7 +165,16 @@ const Popup: React.FC = () => {
 
   const clearAllTexts = async () => {
     try {
-      await chrome.runtime.sendMessage({ action: 'CLEAR_STORED_TEXTS' });
+      await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: 'CLEAR_STORED_TEXTS' }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      
       setStoredTexts([]);
       setCurrentText('');
       setCurrentProcessed(null);
@@ -240,41 +323,52 @@ const Popup: React.FC = () => {
   );
 
   const renderSummary = (summary: Summary) => (
-    <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
-      <h4 className="font-semibold text-blue-800 mb-2">Summary</h4>
-      <p className="text-sm text-blue-700 mb-2">{summary.text}</p>
-      
-      <div className="flex gap-2 mb-2">
-        <span className={`px-2 py-1 rounded text-xs font-medium ${
-          summary.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-          summary.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-red-100 text-red-800'
-        }`}>
-          {summary.difficulty}
-        </span>
-        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-          {Math.round(summary.confidence * 100)}% confidence
-        </span>
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-3">
+      <div className="flex items-center mb-3">
+        <span className="text-2xl mr-2">📋</span>
+        <h4 className="font-semibold text-blue-800 text-sm">Summary</h4>
+        <div className="ml-auto flex items-center space-x-2">
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            summary.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
+            summary.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+            'bg-red-100 text-red-700'
+          }`}>
+            {summary.difficulty}
+          </span>
+          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+            {Math.round(summary.confidence * 100)}% confidence
+          </span>
+        </div>
       </div>
       
-      {summary.topics.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {summary.topics.map((topic, index) => (
-            <span key={index} className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs">
-              {topic}
-            </span>
-          ))}
+      <p className="text-sm text-blue-900 leading-relaxed mb-3 font-medium">
+        {summary.text}
+      </p>
+      
+      {summary.keyPoints.length > 0 && (
+        <div className="mb-3">
+          <h5 className="text-xs font-semibold text-blue-700 mb-2 flex items-center">
+            <span className="mr-1">💡</span>
+            Key Points:
+          </h5>
+          <ul className="space-y-1">
+            {summary.keyPoints.slice(0, 3).map((point, index) => (
+              <li key={index} className="text-xs text-blue-800 flex items-start">
+                <span className="text-blue-500 mr-2 mt-1">•</span>
+                <span className="leading-relaxed">{truncateText(point, 80)}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       
-      {summary.keyPoints.length > 0 && (
-        <div className="text-xs">
-          <span className="text-blue-600 font-medium">Key Points:</span>
-          <ul className="list-disc list-inside text-blue-700 mt-1">
-            {summary.keyPoints.slice(0, 3).map((point, index) => (
-              <li key={index}>{truncateText(point, 80)}</li>
-            ))}
-          </ul>
+      {summary.topics.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {summary.topics.map((topic, index) => (
+            <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+              {topic}
+            </span>
+          ))}
         </div>
       )}
     </div>
@@ -307,8 +401,58 @@ const Popup: React.FC = () => {
           disabled={loading}
           className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          🎙️ Voice Command
+          🚀 Quick Summarize
         </button>
+
+        {/* Accessibility Section */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-800">Accessibility</h3>
+            <div className={`flex items-center text-xs ${
+              accessibilityEnabled ? 'text-green-600' : 'text-gray-500'
+            }`}>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                accessibilityEnabled ? 'bg-green-500' : 'bg-gray-400'
+              }`}></div>
+              {accessibilityEnabled ? 'ON' : 'OFF'}
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-600 mb-3">
+            Toggle voice reading of page content for accessibility
+          </p>
+          
+          <button
+            onClick={toggleAccessibility}
+            disabled={accessibilityLoading}
+            className={`w-full font-medium py-2 px-4 rounded transition-colors ${
+              accessibilityEnabled
+                ? 'bg-green-500 hover:bg-green-600 text-white'
+                : 'bg-gray-500 hover:bg-gray-600 text-white'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {accessibilityLoading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Processing...
+              </div>
+            ) : (
+              accessibilityEnabled ? '🟢 Turn Off Accessibility' : '🔴 Turn On Accessibility'
+            )}
+          </button>
+          
+          {accessibilityEnabled && (
+            <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+              <div className="flex items-start">
+                <span className="mr-2">♿</span>
+                <div>
+                  <p className="font-medium mb-1">Accessibility is active!</p>
+                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+N</kbd> on any page to read content aloud.</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {loading && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
@@ -331,16 +475,72 @@ const Popup: React.FC = () => {
 
       {currentText ? (
         <div className="mb-4 p-3 bg-gray-50 rounded border">
-          <h3 className="font-semibold text-gray-800 mb-2">Current Page Text</h3>
+          <h3 className="font-semibold text-gray-800 mb-2">Current Page Content</h3>
           {currentProcessed && renderTextStats(currentProcessed)}
-          {currentSummarization && renderSummary(currentSummarization.summary)}
           
-          {currentSummarization?.isFallback && (
-            <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-              <p className="text-yellow-700 text-xs flex items-center">
-                <span className="mr-1">⚠️</span>
-                Fallback flashcards shown (summary confidence was low or content unavailable)
+          {/* View Mode Toggle */}
+          {currentSummarization && (
+            <div className="mb-3">
+              <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode('summary')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${
+                    viewMode === 'summary'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="flex items-center justify-center">
+                    <span className="mr-1">📋</span>
+                    Summary
+                  </span>
+                </button>
+                <button
+                  onClick={() => setViewMode('flashcards')}
+                  className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${
+                    viewMode === 'flashcards'
+                      ? 'bg-green-500 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="flex items-center justify-center">
+                    <span className="mr-1">🎯</span>
+                    Flashcards ({currentSummarization.flashcards.length})
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Content View */}
+          {viewMode === 'summary' && currentSummarization && (
+            <div>
+              {renderSummary(currentSummarization.summary)}
+              
+              {currentSummarization?.isFallback && (
+                <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                  <p className="text-yellow-700 text-xs flex items-center">
+                    <span className="mr-1">⚠️</span>
+                    Fallback flashcards shown (summary confidence was low or content unavailable)
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {viewMode === 'flashcards' && currentSummarization && (
+            <div className="text-center py-4">
+              <div className="text-3xl mb-2">🎯</div>
+              <h4 className="font-semibold text-gray-800 mb-2">Ready to Study?</h4>
+              <p className="text-sm text-gray-600 mb-3">
+                {currentSummarization.flashcards.length} flashcards generated from this content
               </p>
+              <button
+                onClick={() => setShowFlashcards(true)}
+                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded transition-colors"
+              >
+                Start Studying
+              </button>
             </div>
           )}
           
@@ -351,14 +551,6 @@ const Popup: React.FC = () => {
             >
               Copy Text
             </button>
-            {currentSummarization && currentSummarization.flashcards.length > 0 && (
-              <button
-                onClick={() => setShowFlashcards(true)}
-                className="text-green-500 hover:text-green-600 text-sm"
-              >
-                View Flashcards ({currentSummarization.flashcards.length})
-              </button>
-            )}
             {currentSummarization?.summary.text && (
               <button
                 onClick={speakSummary}

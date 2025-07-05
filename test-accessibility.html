@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starlet25 Accessibility Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .debug-info {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Starlet25 Accessibility Test Page</h1>
+    
+    <div class="instructions">
+        <h2>Testing Instructions</h2>
+        <ol>
+            <li>Open the Starlet25 extension popup</li>
+            <li>Enable accessibility by clicking "🔴 Turn On Accessibility"</li>
+            <li>Press <strong>Alt+N</strong> on this page to test voice reading</li>
+            <li>Check the browser console for debug messages</li>
+            <li>Use the test buttons below for manual testing</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Content</h2>
+        <p>This is a test page for the Starlet25 accessibility feature. When you press Alt+N, this content should be read aloud using text-to-speech.</p>
+        
+        <p>The accessibility feature should:</p>
+        <ul>
+            <li>Respond to the Alt+N keyboard shortcut</li>
+            <li>Show a visual indicator when reading</li>
+            <li>Read the main content of the page</li>
+            <li>Provide console logging for debugging</li>
+        </ul>
+        
+        <p>If the Alt+N shortcut is not working, check the browser console for error messages and ensure the extension is properly loaded.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Manual Test Buttons</h2>
+        <button onclick="testAccessibility()">Test Accessibility Reading</button>
+        <button onclick="checkExtensionStatus()">Check Extension Status</button>
+        <button onclick="showDebugInfo()">Show Debug Info</button>
+    </div>
+
+    <div id="debug-output" class="debug-info" style="display: none;">
+        <h3>Debug Information</h3>
+        <div id="debug-content"></div>
+    </div>
+
+    <script>
+        function testAccessibility() {
+            console.log('Manual test: Triggering accessibility reading...');
+            if (window.testStarlet25Accessibility) {
+                window.testStarlet25Accessibility();
+            } else {
+                console.error('Starlet25 extension not loaded or test function not available');
+                alert('Starlet25 extension not loaded or test function not available');
+            }
+        }
+
+        function checkExtensionStatus() {
+            console.log('Checking Starlet25 extension status...');
+            
+            // Check if extension is loaded
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                console.log('Chrome extension API available');
+                
+                // Try to send a message to the extension
+                chrome.runtime.sendMessage({ action: 'GET_ACCESSIBILITY_STATUS' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Extension not responding:', chrome.runtime.lastError);
+                        alert('Extension not responding: ' + chrome.runtime.lastError.message);
+                    } else if (response) {
+                        console.log('Extension status:', response);
+                        alert('Accessibility enabled: ' + response.enabled);
+                    } else {
+                        console.log('No response from extension');
+                        alert('No response from extension');
+                    }
+                });
+            } else {
+                console.error('Chrome extension API not available');
+                alert('Chrome extension API not available');
+            }
+        }
+
+        function showDebugInfo() {
+            const debugDiv = document.getElementById('debug-output');
+            const debugContent = document.getElementById('debug-content');
+            
+            let info = '';
+            info += 'User Agent: ' + navigator.userAgent + '\n';
+            info += 'Speech Synthesis Available: ' + ('speechSynthesis' in window) + '\n';
+            info += 'Chrome Extension API: ' + (typeof chrome !== 'undefined') + '\n';
+            info += 'Starlet25 Test Function: ' + (typeof window.testStarlet25Accessibility !== 'undefined') + '\n';
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                info += 'Extension ID: ' + chrome.runtime.id + '\n';
+            }
+            
+            debugContent.textContent = info;
+            debugDiv.style.display = 'block';
+        }
+
+        // Add keyboard listener for testing
+        document.addEventListener('keydown', (event) => {
+            if (event.altKey && event.key.toLowerCase() === 'n') {
+                console.log('Alt+N detected on test page');
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Try to trigger the extension's accessibility
+                if (window.testStarlet25Accessibility) {
+                    window.testStarlet25Accessibility();
+                } else {
+                    console.log('Extension accessibility function not available');
+                }
+            }
+        });
+
+        console.log('Starlet25 test page loaded');
+        console.log('Press Alt+N to test accessibility, or use the test buttons');
+    </script>
+</body>
+</html> 

@@ -233,27 +233,65 @@ function calculateConfidence(text: string): number {
 function generateSummaryText(sentences: string[]): string {
   if (sentences.length === 0) return "No content available for summarization.";
   
-  // Take first 3 meaningful sentences
+  // Take first 2-3 meaningful sentences and make them more concise
   const summarySentences = sentences
-    .filter(s => s.length > 20)
-    .slice(0, 3);
+    .filter(s => s.length > 20 && s.length < 120)
+    .slice(0, 3)
+    .map(sentence => {
+      // Make sentences more concise by removing unnecessary words
+      return sentence
+        .replace(/\b(this|that|these|those|it|they|them)\b/gi, '')
+        .replace(/\b(is|are|was|were)\s+(a|an|the)\s+/gi, 'is ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    });
   
   if (summarySentences.length === 0) {
     return sentences[0] || "Content extracted but too short for meaningful summary.";
   }
   
-  return summarySentences.join(' ') + '.';
+  // Join with better punctuation and ensure it's not too long
+  let summary = summarySentences.join('. ');
+  if (!summary.endsWith('.')) summary += '.';
+  
+  // Limit to 200 characters for better readability
+  if (summary.length > 200) {
+    summary = summary.substring(0, 197) + '...';
+  }
+  
+  return summary;
 }
 
 function extractKeyPoints(sentences: string[]): string[] {
   return sentences
-    .filter(s => s.length > 30 && s.length < 150)
-    .slice(0, 5)
-    .map(s => s.trim());
+    .filter(s => s.length > 20 && s.length < 100)
+    .slice(0, 4)
+    .map(s => {
+      // Make key points more concise
+      return s
+        .replace(/\b(this|that|these|those)\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 80); // Limit length
+    });
 }
 
 function generateFlashcards(text: string, topics: string[], difficulty: 'easy' | 'medium' | 'hard'): Flashcard[] {
   const flashcards: Flashcard[] = [];
+  
+  // Generate Q&A cards (more detailed)
+  const qaCards = generateQACards(text, topics, difficulty);
+  flashcards.push(...qaCards);
+  
+  // Generate revision cards (concise)
+  const revisionCards = generateRevisionCards(text, topics, difficulty);
+  flashcards.push(...revisionCards);
+  
+  return flashcards.slice(0, 12); // Limit to 12 flashcards total
+}
+
+function generateQACards(text: string, topics: string[], difficulty: 'easy' | 'medium' | 'hard'): Flashcard[] {
+  const cards: Flashcard[] = [];
   const sentences = extractSentences(text);
   
   // Generate definition cards for technical terms
@@ -262,17 +300,17 @@ function generateFlashcards(text: string, topics: string[], difficulty: 'easy' |
   ).slice(0, 3);
   
   technicalTerms.forEach((term, index) => {
-    flashcards.push({
-      id: `def_${index}`,
-      question: `What is ${term}?`,
+    cards.push({
+      id: `qa_def_${index}`,
+      question: `What is ${term} and how is it used?`,
       answer: generateDefinitionAnswer(term, text),
       type: 'definition',
       difficulty: difficulty,
-      tags: [...topics, 'definition']
+      tags: [...topics, 'definition', 'qa']
     });
   });
   
-  // Generate concept cards
+  // Generate concept cards with better questions
   const conceptSentences = sentences.filter(s => 
     s.length > 40 && s.length < 120
   ).slice(0, 2);
@@ -280,56 +318,135 @@ function generateFlashcards(text: string, topics: string[], difficulty: 'easy' |
   conceptSentences.forEach((sentence, index) => {
     const concept = extractConceptFromSentence(sentence);
     if (concept) {
-      flashcards.push({
-        id: `concept_${index}`,
-        question: `Explain the concept of ${concept}.`,
+      cards.push({
+        id: `qa_concept_${index}`,
+        question: `How would you explain ${concept} to someone new to this topic?`,
         answer: sentence,
         type: 'concept',
         difficulty: difficulty,
-        tags: [...topics, 'concept']
+        tags: [...topics, 'concept', 'qa']
       });
     }
   });
   
-  // Generate fact cards
-  const factSentences = sentences.filter(s => 
-    s.includes('is') || s.includes('are') || s.includes('was') || s.includes('were')
-  ).slice(0, 2);
-  
-  factSentences.forEach((sentence, index) => {
-    const fact = extractFactFromSentence(sentence);
-    if (fact) {
-      flashcards.push({
-        id: `fact_${index}`,
-        question: `What is ${fact}?`,
-        answer: sentence,
-        type: 'fact',
-        difficulty: difficulty,
-        tags: [...topics, 'fact']
-      });
-    }
-  });
-  
-  // Generate process cards
+  // Generate process cards with step-by-step questions
   const processSentences = sentences.filter(s => 
     s.includes('step') || s.includes('process') || s.includes('method') || s.includes('procedure')
-  ).slice(0, 1);
+  ).slice(0, 2);
   
   processSentences.forEach((sentence, index) => {
     const process = extractProcessFromSentence(sentence);
     if (process) {
-      flashcards.push({
-        id: `process_${index}`,
-        question: `What are the steps to ${process}?`,
+      cards.push({
+        id: `qa_process_${index}`,
+        question: `What are the key steps involved in ${process}?`,
         answer: sentence,
         type: 'process',
         difficulty: difficulty,
-        tags: [...topics, 'process']
+        tags: [...topics, 'process', 'qa']
       });
     }
   });
   
-  return flashcards.slice(0, 8); // Limit to 8 flashcards
+  return cards;
+}
+
+function generateRevisionCards(text: string, topics: string[], difficulty: 'easy' | 'medium' | 'hard'): Flashcard[] {
+  const cards: Flashcard[] = [];
+  const words = extractWords(text);
+  
+  // Generate keyword cards
+  const keywords = words
+    .filter(word => word.length > 4 && TECHNICAL_TERMS.includes(word))
+    .slice(0, 4);
+  
+  keywords.forEach((keyword, index) => {
+    cards.push({
+      id: `rev_keyword_${index}`,
+      question: `Define: ${keyword}`,
+      answer: generateShortDefinition(keyword),
+      type: 'definition',
+      difficulty: difficulty,
+      tags: [...topics, 'keyword', 'revision']
+    });
+  });
+  
+  // Generate fact cards with short questions
+  const factSentences = extractSentences(text).filter(s => 
+    s.includes('is') || s.includes('are') || s.includes('was') || s.includes('were')
+  ).slice(0, 3);
+  
+  factSentences.forEach((sentence, index) => {
+    const fact = extractFactFromSentence(sentence);
+    if (fact) {
+      cards.push({
+        id: `rev_fact_${index}`,
+        question: `What is ${fact}?`,
+        answer: sentence.substring(0, 100) + (sentence.length > 100 ? '...' : ''),
+        type: 'fact',
+        difficulty: difficulty,
+        tags: [...topics, 'fact', 'revision']
+      });
+    }
+  });
+  
+  // Generate quick concept cards
+  const conceptWords = words
+    .filter(word => word.length > 5 && !TECHNICAL_TERMS.includes(word))
+    .slice(0, 3);
+  
+  conceptWords.forEach((word, index) => {
+    cards.push({
+      id: `rev_concept_${index}`,
+      question: `Quick: ${word}`,
+      answer: `A key concept related to ${word} in this context.`,
+      type: 'concept',
+      difficulty: difficulty,
+      tags: [...topics, 'concept', 'revision']
+    });
+  });
+  
+  return cards;
+}
+
+function generateShortDefinition(term: string): string {
+  const shortDefinitions: { [key: string]: string } = {
+    'api': 'Interface for software communication',
+    'function': 'Reusable code block',
+    'variable': 'Data storage container',
+    'class': 'Object blueprint',
+    'method': 'Class function',
+    'object': 'Class instance',
+    'array': 'Ordered data collection',
+    'string': 'Text sequence',
+    'database': 'Structured data storage',
+    'framework': 'Development foundation',
+    'algorithm': 'Problem-solving steps',
+    'loop': 'Repeated execution',
+    'condition': 'Decision logic',
+    'callback': 'Function reference',
+    'promise': 'Async operation result',
+    'module': 'Code organization unit',
+    'package': 'Dependency bundle',
+    'library': 'Reusable code collection',
+    'dependency': 'Required external code',
+    'deployment': 'Application release',
+    'testing': 'Code verification',
+    'debugging': 'Error fixing',
+    'optimization': 'Performance improvement',
+    'security': 'Protection measures',
+    'authentication': 'User verification',
+    'encryption': 'Data protection',
+    'caching': 'Temporary storage',
+    'scaling': 'Performance expansion',
+    'frontend': 'User interface',
+    'backend': 'Server logic',
+    'responsive': 'Adaptive design',
+    'accessibility': 'Universal access',
+    'seo': 'Search optimization'
+  };
+  
+  return shortDefinitions[term.toLowerCase()] || `${term}: technical concept`;
 }
 
 function generateDefinitionAnswer(term: string, context: string): string {

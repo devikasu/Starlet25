@@ -2,6 +2,8 @@
 import { processExtractedText, ProcessedText } from '../utils/textProcessor';
 import { summarizeText, SummarizationResult } from '../utils/summarizer';
 
+
+
 interface ExtractedText {
   type: 'PAGE_TEXT';
   text: string;
@@ -108,7 +110,10 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
         chrome.tabs.sendMessage(tabs[0].id, { action: 'EXTRACT_TEXT' }, (response) => {
-          if (response && response.text) {
+          if (chrome.runtime.lastError) {
+            console.warn("Starlet25: Content script not ready for extraction", chrome.runtime.lastError.message);
+            sendResponse({ success: false, error: 'Content script not ready' });
+          } else if (response && response.text) {
             const processed = processExtractedText(response.text);
             const summarization = summarizeText(response.text);
             const extractedData: ExtractedText = {
@@ -135,6 +140,56 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     });
     return true;
   }
+
+  // Handle accessibility toggle
+  if (request.action === 'TOGGLE_ACCESSIBILITY') {
+    const { enabled } = request;
+    
+    console.log(`Starlet25: Toggling accessibility to ${enabled}`);
+    
+    // First, try to inject content script if not already present
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]?.id) {
+        const tabId = tabs[0].id;
+        
+        // Try to inject content script first
+        chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ['assets/content.js']
+        }).then(() => {
+          console.log(`Starlet25: Content script injected successfully`);
+          
+          // Small delay to ensure script is loaded
+          setTimeout(() => {
+            // Then send the toggle message
+            chrome.tabs.sendMessage(tabId, { 
+              action: 'TOGGLE_ACCESSIBILITY', 
+              enabled: enabled 
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.warn("Starlet25: Content script not ready for accessibility toggle", chrome.runtime.lastError.message);
+                sendResponse({ success: false, error: 'Content script not responding' });
+              } else if (response && response.success) {
+                console.log(`Starlet25: Accessibility ${enabled ? 'enabled' : 'disabled'} successfully`);
+                sendResponse({ success: true });
+              } else {
+                console.error('Starlet25: Failed to toggle accessibility - no response');
+                sendResponse({ success: false, error: 'Failed to toggle accessibility' });
+              }
+            });
+          }, 200);
+          
+        }).catch((injectionError) => {
+          console.error('Starlet25: Error injecting content script:', injectionError);
+          sendResponse({ success: false, error: 'Content script injection failed' });
+        });
+      } else {
+        console.error('Starlet25: No active tab found');
+        sendResponse({ success: false, error: 'No active tab found' });
+      }
+    });
+    return true;
+  }
 });
 
 // Handle extension installation
@@ -145,11 +200,55 @@ chrome.runtime.onInstalled.addListener(() => {
 // Handle tab updates to extract text on page changes
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
+    console.log(`Starlet25: Tab ${tabId} completed loading: ${tab.url}`);
+    
     // Small delay to ensure content script has loaded
     setTimeout(() => {
-      chrome.tabs.sendMessage(tabId, { action: 'EXTRACT_TEXT' }).catch(() => {
-        // Content script might not be ready yet, ignore errors
+      // Check if accessibility is enabled
+      chrome.storage.local.get(['accessibilityEnabled']).then((result) => {
+        const accessibilityEnabled = result.accessibilityEnabled === true;
+        
+        // Extract text
+        chrome.tabs.sendMessage(tabId, { action: 'EXTRACT_TEXT' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.log(`Starlet25: Content script not ready for text extraction on tab ${tabId}:`, chrome.runtime.lastError.message);
+          } else if (response) {
+            console.log(`Starlet25: Text extracted from tab ${tabId}`);
+          }
+        });
+        
+        // If accessibility is enabled, ensure content script is injected
+        if (accessibilityEnabled) {
+          console.log(`Starlet25: Accessibility enabled, ensuring content script is injected on tab ${tabId}`);
+          
+          chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ['assets/content.js']
+          }).then(() => {
+            console.log(`Starlet25: Content script injected on tab ${tabId}`);
+            
+            // Send accessibility toggle message
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tabId, { 
+                action: 'TOGGLE_ACCESSIBILITY', 
+                enabled: true 
+              }, (response) => {
+                if (chrome.runtime.lastError) {
+                  console.log(`Starlet25: Content script not ready for accessibility on tab ${tabId}:`, chrome.runtime.lastError.message);
+                } else if (response) {
+                  console.log(`Starlet25: Accessibility enabled on tab ${tabId}`);
+                }
+              });
+            }, 500);
+          }).catch((error) => {
+            console.log(`Starlet25: Content script already injected or injection failed on tab ${tabId}:`, error);
+          });
+        }
+      }).catch((error) => {
+        console.error('Starlet25: Error checking accessibility status:', error);
       });
     }, 1000);
   }
 });
+
+
