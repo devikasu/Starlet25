@@ -244,6 +244,15 @@ const Popup: React.FC = () => {
           {currentProcessed && renderTextStats(currentProcessed)}
           {currentSummarization && renderSummary(currentSummarization.summary)}
           
+          {currentSummarization?.isFallback && (
+            <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-yellow-700 text-xs flex items-center">
+                <span className="mr-1">⚠️</span>
+                Fallback flashcards shown (summary confidence was low or content unavailable)
+              </p>
+            </div>
+          )}
+          
           <div className="flex gap-2 mb-2 flex-wrap">
             <button
               onClick={() => copyToClipboard(currentText)}
@@ -321,8 +330,8 @@ const Popup: React.FC = () => {
                     <span className="text-xs text-gray-500">Summary: </span>
                     <span className="text-xs text-gray-700">{truncateText(item.summarization.summary.text, 60)}</span>
                     {item.summarization.flashcards.length > 0 && (
-                      <span className="text-xs text-green-600 ml-2">
-                        ({item.summarization.flashcards.length} cards)
+                      <span className={`text-xs ml-2 ${item.summarization.isFallback ? 'text-yellow-600' : 'text-green-600'}`}>
+                        ({item.summarization.flashcards.length} cards{item.summarization.isFallback ? ' - fallback' : ''})
                       </span>
                     )}
                   </div>

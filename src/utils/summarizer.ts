@@ -21,6 +21,7 @@ export interface SummarizationResult {
   summary: Summary;
   flashcards: Flashcard[];
   generatedAt: number;
+  isFallback?: boolean;
 }
 
 // Common technical terms and concepts
@@ -44,6 +45,42 @@ const PROGRAMMING_CONCEPTS = [
   'Asynchronous Programming', 'Error Handling', 'Logging', 'Monitoring'
 ];
 
+// Default fallback flashcards
+const FALLBACK_FLASHCARDS: Flashcard[] = [
+  {
+    id: 'fallback_1',
+    question: "What is this page about?",
+    answer: "This page contains general information relevant to the user. The content has been extracted but could not be automatically summarized.",
+    type: 'concept',
+    difficulty: 'easy',
+    tags: ['general', 'fallback']
+  },
+  {
+    id: 'fallback_2',
+    question: "What can the user do with this extension?",
+    answer: "Extract text from web pages, summarize content, generate flashcards for learning, and analyze page content for better understanding.",
+    type: 'concept',
+    difficulty: 'easy',
+    tags: ['extension', 'fallback']
+  },
+  {
+    id: 'fallback_3',
+    question: "How does text extraction work?",
+    answer: "The extension identifies main content areas, removes navigation elements, and extracts clean text while avoiding ads, footers, and sidebars.",
+    type: 'process',
+    difficulty: 'medium',
+    tags: ['extraction', 'fallback']
+  },
+  {
+    id: 'fallback_4',
+    question: "What types of content can be processed?",
+    answer: "Articles, documentation, tutorials, blog posts, and any text-based content. The extension works best with structured, informative content.",
+    type: 'fact',
+    difficulty: 'easy',
+    tags: ['content', 'fallback']
+  }
+];
+
 export function summarizeText(text: string): SummarizationResult {
   const sentences = extractSentences(text);
   const topics = identifyTopics(text);
@@ -59,12 +96,21 @@ export function summarizeText(text: string): SummarizationResult {
   };
 
   // Generate flashcards
-  const flashcards = generateFlashcards(text, topics, difficulty);
+  let flashcards = generateFlashcards(text, topics, difficulty);
+  let isFallback = false;
+
+  // Fallback logic: if no flashcards generated or summarization failed
+  if (!flashcards || flashcards.length === 0 || summary.confidence < 0.3) {
+    flashcards = [...FALLBACK_FLASHCARDS];
+    isFallback = true;
+    console.log('Starlet25: Using fallback flashcards due to low confidence or no content');
+  }
 
   return {
     summary,
     flashcards,
-    generatedAt: Date.now()
+    generatedAt: Date.now(),
+    isFallback
   };
 }
 

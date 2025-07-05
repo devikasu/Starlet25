@@ -61,7 +61,7 @@ async function storeExtractedText(data: ExtractedText): Promise<void> {
       hasCode: processed.hasCode,
       hasLinks: processed.hasLinks
     });
-    console.log(`[${new Date().toISOString()}] Generated ${summarization.flashcards.length} flashcards and summary with ${Math.round(summarization.summary.confidence * 100)}% confidence`);
+    console.log(`[${new Date().toISOString()}] Generated ${summarization.flashcards.length} flashcards and summary with ${Math.round(summarization.summary.confidence * 100)}% confidence${summarization.isFallback ? ' (FALLBACK USED)' : ''}`);
   } catch (error) {
     console.error('Starlet25: Error storing text:', error);
   }
