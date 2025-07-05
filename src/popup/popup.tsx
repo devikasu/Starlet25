@@ -1,0 +1,317 @@
+import React, { useState, useEffect } from 'react';
+import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
+import { SummarizationResult, Summary, Flashcard } from '../utils/summarizer';
+import FlashcardViewer from '../components/FlashcardViewer';
+
+interface StoredText {
+  id: string;
+  text: string;
+  url: string;
+  title: string;
+  timestamp: number;
+  processed?: ProcessedText;
+  summarization?: SummarizationResult;
+}
+
+const Popup: React.FC = () => {
+  const [storedTexts, setStoredTexts] = useState<StoredText[]>([]);
+  const [currentText, setCurrentText] = useState<string>('');
+  const [currentProcessed, setCurrentProcessed] = useState<ProcessedText | null>(null);
+  const [currentSummarization, setCurrentSummarization] = useState<SummarizationResult | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
+
+  useEffect(() => {
+    loadStoredTexts();
+  }, []);
+
+  const loadStoredTexts = async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'GET_STORED_TEXTS' });
+      if (response && response.texts) {
+        setStoredTexts(response.texts);
+      }
+    } catch (err) {
+      console.error('Error loading stored texts:', err);
+    }
+  };
+
+  const extractCurrentPage = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' });
+      if (response.success) {
+        setCurrentText(response.text);
+        if (response.processed) {
+          setCurrentProcessed(response.processed);
+        }
+        if (response.summarization) {
+          setCurrentSummarization(response.summarization);
+        }
+        await loadStoredTexts(); // Refresh the list
+      } else {
+        setError(response.error || 'Failed to extract text');
+      }
+    } catch (err) {
+      setError('Error extracting text from current page');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rescanPage = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' });
+      if (response.success) {
+        setCurrentText(response.text);
+        if (response.processed) {
+          setCurrentProcessed(response.processed);
+        }
+        if (response.summarization) {
+          setCurrentSummarization(response.summarization);
+        }
+        await loadStoredTexts(); // Refresh the list
+      } else {
+        setError(response.error || 'Failed to re-scan page');
+      }
+    } catch (err) {
+      setError('Error re-scanning page');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearAllTexts = async () => {
+    try {
+      await chrome.runtime.sendMessage({ action: 'CLEAR_STORED_TEXTS' });
+      setStoredTexts([]);
+      setCurrentText('');
+      setCurrentProcessed(null);
+      setCurrentSummarization(null);
+    } catch (err) {
+      console.error('Error clearing texts:', err);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      // Show a brief success message
+      const originalText = document.title;
+      document.title = 'Copied!';
+      setTimeout(() => {
+        document.title = originalText;
+      }, 1000);
+    });
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const truncateText = (text: string, maxLength: number = 100) => {
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
+  const renderTextStats = (processed: ProcessedText) => (
+    <div className="text-xs text-gray-600 space-y-1 mb-2">
+      <div className="flex justify-between">
+        <span>{formatWordCount(processed.wordCount)}</span>
+        <span>{formatCharacterCount(processed.characterCount)}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Reading time: {formatReadingTime(processed.estimatedReadingTime)}</span>
+        <span>Language: {processed.language.toUpperCase()}</span>
+      </div>
+      <div className="flex gap-2">
+        {processed.hasCode && (
+          <span className="bg-blue-100 text-blue-800 px-1 rounded text-xs">Code</span>
+        )}
+        {processed.hasLinks && (
+          <span className="bg-green-100 text-green-800 px-1 rounded text-xs">Links</span>
+        )}
+      </div>
+      {processed.keywords.length > 0 && (
+        <div className="text-xs">
+          <span className="text-gray-500">Keywords: </span>
+          <span className="text-gray-700">{processed.keywords.slice(0, 3).join(', ')}</span>
+          {processed.keywords.length > 3 && <span className="text-gray-500">...</span>}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSummary = (summary: Summary) => (
+    <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+      <h4 className="font-semibold text-blue-800 mb-2">Summary</h4>
+      <p className="text-sm text-blue-700 mb-2">{summary.text}</p>
+      
+      <div className="flex gap-2 mb-2">
+        <span className={`px-2 py-1 rounded text-xs font-medium ${
+          summary.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+          summary.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+          'bg-red-100 text-red-800'
+        }`}>
+          {summary.difficulty}
+        </span>
+        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+          {Math.round(summary.confidence * 100)}% confidence
+        </span>
+      </div>
+      
+      {summary.topics.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {summary.topics.map((topic, index) => (
+            <span key={index} className="bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs">
+              {topic}
+            </span>
+          ))}
+        </div>
+      )}
+      
+      {summary.keyPoints.length > 0 && (
+        <div className="text-xs">
+          <span className="text-blue-600 font-medium">Key Points:</span>
+          <ul className="list-disc list-inside text-blue-700 mt-1">
+            {summary.keyPoints.slice(0, 3).map((point, index) => (
+              <li key={index}>{truncateText(point, 80)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="w-96 h-96 bg-white p-4 overflow-y-auto">
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-gray-800 mb-2">Starlet25</h1>
+        <p className="text-sm text-gray-600 mb-3">Extract & Learn</p>
+        
+        <button
+          onClick={extractCurrentPage}
+          disabled={loading}
+          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
+        >
+          {loading ? 'Extracting...' : 'Extract Current Page'}
+        </button>
+
+        <button
+          onClick={rescanPage}
+          disabled={loading}
+          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
+        >
+          {loading ? 'Re-scanning...' : 'Re-scan Current Page'}
+        </button>
+
+        {error && (
+          <div className="text-red-500 text-sm mb-3">{error}</div>
+        )}
+      </div>
+
+      {currentText && (
+        <div className="mb-4 p-3 bg-gray-50 rounded border">
+          <h3 className="font-semibold text-gray-800 mb-2">Current Page Text</h3>
+          {currentProcessed && renderTextStats(currentProcessed)}
+          {currentSummarization && renderSummary(currentSummarization.summary)}
+          
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={() => copyToClipboard(currentText)}
+              className="text-blue-500 hover:text-blue-600 text-sm"
+            >
+              Copy Text
+            </button>
+            {currentSummarization && currentSummarization.flashcards.length > 0 && (
+              <button
+                onClick={() => setShowFlashcards(true)}
+                className="text-green-500 hover:text-green-600 text-sm"
+              >
+                View Flashcards ({currentSummarization.flashcards.length})
+              </button>
+            )}
+          </div>
+          
+          <p className="text-sm text-gray-700">
+            {truncateText(currentText, 150)}
+          </p>
+        </div>
+      )}
+
+      {storedTexts.length > 0 && (
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-semibold text-gray-800">Recent Extractions</h3>
+            <button
+              onClick={clearAllTexts}
+              className="text-red-500 hover:text-red-600 text-sm"
+            >
+              Clear All
+            </button>
+          </div>
+          
+          <div className="space-y-2">
+            {storedTexts.map((item) => (
+              <div key={item.id} className="p-3 bg-gray-50 rounded border">
+                <div className="flex justify-between items-start mb-1">
+                  <h4 className="font-medium text-gray-800 text-sm truncate">
+                    {item.title}
+                  </h4>
+                  <button
+                    onClick={() => copyToClipboard(item.text)}
+                    className="text-blue-500 hover:text-blue-600 text-xs ml-2"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mb-1 truncate">
+                  {item.url}
+                </p>
+                <p className="text-xs text-gray-600 mb-2">
+                  {formatDate(item.timestamp)}
+                </p>
+                {item.processed && renderTextStats(item.processed)}
+                {item.summarization && (
+                  <div className="mb-2">
+                    <span className="text-xs text-gray-500">Summary: </span>
+                    <span className="text-xs text-gray-700">{truncateText(item.summarization.summary.text, 60)}</span>
+                    {item.summarization.flashcards.length > 0 && (
+                      <span className="text-xs text-green-600 ml-2">
+                        ({item.summarization.flashcards.length} cards)
+                      </span>
+                    )}
+                  </div>
+                )}
+                <p className="text-sm text-gray-700">
+                  {truncateText(item.text, 80)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {storedTexts.length === 0 && !currentText && (
+        <div className="text-center text-gray-500 py-8">
+          <p>No extracted text yet.</p>
+          <p className="text-sm">Click "Extract Current Page" to get started.</p>
+        </div>
+      )}
+
+      {/* Flashcard Viewer Modal */}
+      {showFlashcards && currentSummarization && (
+        <FlashcardViewer
+          flashcards={currentSummarization.flashcards}
+          onClose={() => setShowFlashcards(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Popup;
