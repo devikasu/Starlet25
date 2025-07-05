@@ -78,6 +78,22 @@ const FALLBACK_FLASHCARDS: Flashcard[] = [
     type: 'fact',
     difficulty: 'easy',
     tags: ['content', 'fallback']
+  },
+  {
+    id: 'fallback_5',
+    question: "How can I use the text-to-speech feature?",
+    answer: "Click the 🔊 Speak Summary button to have the page summary read aloud using your browser's text-to-speech capabilities.",
+    type: 'process',
+    difficulty: 'easy',
+    tags: ['speech', 'fallback']
+  },
+  {
+    id: 'fallback_6',
+    question: "What are the different flashcard types?",
+    answer: "Definition cards explain terms, concept cards cover ideas, fact cards present information, and process cards describe how things work.",
+    type: 'concept',
+    difficulty: 'medium',
+    tags: ['flashcards', 'fallback']
   }
 ];
 

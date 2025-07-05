@@ -114,11 +114,30 @@ const Popup: React.FC = () => {
 
   const speakSummary = () => {
     if (currentSummarization?.summary.text) {
-      const utterance = new SpeechSynthesisUtterance(currentSummarization.summary.text);
-      utterance.rate = 0.9; // Slightly slower for better comprehension
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      speechSynthesis.speak(utterance);
+      try {
+        const utterance = new SpeechSynthesisUtterance(currentSummarization.summary.text);
+        utterance.rate = 0.9; // Slightly slower for better comprehension
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        // Add event listeners for better user feedback
+        utterance.onstart = () => {
+          console.log('Speech started');
+        };
+        
+        utterance.onend = () => {
+          console.log('Speech ended');
+        };
+        
+        utterance.onerror = (event) => {
+          console.error('Speech error:', event.error);
+        };
+        
+        speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.error('Error with text-to-speech:', error);
+        // Fallback: try to use a different approach or show an error message
+      }
     }
   };
 
@@ -240,15 +259,15 @@ const Popup: React.FC = () => {
           disabled={loading}
           className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          {loading ? 'Extracting...' : 'Extract Current Page'}
+          {loading ? 'Summarizing...' : '📄 Summarize Page'}
         </button>
 
         <button
           onClick={rescanPage}
           disabled={loading}
-          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
+          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          {loading ? 'Re-scanning...' : 'Re-scan Current Page'}
+          {loading ? 'Re-scanning...' : '🔄 Re-scan Page'}
         </button>
 
         <button
@@ -381,8 +400,8 @@ const Popup: React.FC = () => {
 
       {storedTexts.length === 0 && !currentText && (
         <div className="text-center text-gray-500 py-8">
-          <p>No extracted text yet.</p>
-          <p className="text-sm">Click "Extract Current Page" to get started.</p>
+          <p>No summarized content yet.</p>
+          <p className="text-sm">Click "📄 Summarize Page" to get started.</p>
         </div>
       )}
 
