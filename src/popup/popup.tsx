@@ -110,6 +110,30 @@ const Popup: React.FC = () => {
     });
   };
 
+  const speakSummary = () => {
+    if (currentSummarization?.summary.text) {
+      const utterance = new SpeechSynthesisUtterance(currentSummarization.summary.text);
+      utterance.rate = 0.9; // Slightly slower for better comprehension
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      speechSynthesis.speak(utterance);
+    }
+  };
+
+  const downloadText = () => {
+    if (currentText) {
+      const blob = new Blob([currentText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `extracted_text_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
@@ -220,7 +244,7 @@ const Popup: React.FC = () => {
           {currentProcessed && renderTextStats(currentProcessed)}
           {currentSummarization && renderSummary(currentSummarization.summary)}
           
-          <div className="flex gap-2 mb-2">
+          <div className="flex gap-2 mb-2 flex-wrap">
             <button
               onClick={() => copyToClipboard(currentText)}
               className="text-blue-500 hover:text-blue-600 text-sm"
@@ -233,6 +257,22 @@ const Popup: React.FC = () => {
                 className="text-green-500 hover:text-green-600 text-sm"
               >
                 View Flashcards ({currentSummarization.flashcards.length})
+              </button>
+            )}
+            {currentSummarization?.summary.text && (
+              <button
+                onClick={speakSummary}
+                className="text-purple-500 hover:text-purple-600 text-sm"
+              >
+                🔊 Speak Summary
+              </button>
+            )}
+            {currentText && (
+              <button
+                onClick={downloadText}
+                className="text-orange-500 hover:text-orange-600 text-sm"
+              >
+                📄 Download Text
               </button>
             )}
           </div>
