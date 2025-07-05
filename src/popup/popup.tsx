@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
 import { SummarizationResult, Summary } from '../utils/summarizer';
+import { downloadAsTxt } from '../utils/fileExport';
 import FlashcardViewer from '../components/FlashcardViewer';
 
 interface StoredText {
@@ -131,6 +132,15 @@ const Popup: React.FC = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+  };
+
+  const exportAsText = () => {
+    if (currentSummarization?.summary && currentSummarization?.flashcards) {
+      const title = currentSummarization.summary.topics.length > 0 
+        ? `${currentSummarization.summary.topics[0]} Study Guide`
+        : 'Study Material';
+      downloadAsTxt(currentSummarization.summary, currentSummarization.flashcards, title);
     }
   };
 
@@ -282,6 +292,14 @@ const Popup: React.FC = () => {
                 className="text-orange-500 hover:text-orange-600 text-sm"
               >
                 📄 Download Text
+              </button>
+            )}
+            {currentSummarization?.summary && currentSummarization?.flashcards && (
+              <button
+                onClick={exportAsText}
+                className="text-indigo-500 hover:text-indigo-600 text-sm"
+              >
+                📁 Export as Text
               </button>
             )}
           </div>

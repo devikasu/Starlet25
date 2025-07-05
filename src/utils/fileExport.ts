@@ -14,6 +14,23 @@ export interface ExportData {
   processed?: any;
 }
 
+export interface Summary {
+  text: string;
+  keyPoints: string[];
+  topics: string[];
+  difficulty: 'easy' | 'medium' | 'hard';
+  confidence: number;
+}
+
+export interface Flashcard {
+  id: string;
+  question: string;
+  answer: string;
+  type: 'definition' | 'concept' | 'fact' | 'process';
+  difficulty: 'easy' | 'medium' | 'hard';
+  tags: string[];
+}
+
 export function exportText(data: ExportData, options: ExportOptions): string {
   switch (options.format) {
     case 'txt':
@@ -129,4 +146,61 @@ export function generateFilename(title: string, format: string): string {
   
   const timestamp = new Date().toISOString().split('T')[0];
   return `${sanitizedTitle}_${timestamp}.${format}`;
+}
+
+export function downloadAsTxt(summary: Summary, flashcards: Flashcard[], title: string = 'Study Material'): void {
+  let content = '';
+  
+  // Header
+  content += `${title}\n`;
+  content += '='.repeat(title.length) + '\n\n';
+  
+  // Summary section
+  content += 'SUMMARY\n';
+  content += '-'.repeat(8) + '\n';
+  content += summary.text + '\n\n';
+  
+  // Key points
+  if (summary.keyPoints.length > 0) {
+    content += 'KEY POINTS:\n';
+    summary.keyPoints.forEach((point, index) => {
+      content += `${index + 1}. ${point}\n`;
+    });
+    content += '\n';
+  }
+  
+  // Topics and metadata
+  content += `Topics: ${summary.topics.join(', ')}\n`;
+  content += `Difficulty: ${summary.difficulty}\n`;
+  content += `Confidence: ${Math.round(summary.confidence * 100)}%\n\n`;
+  
+  // Flashcards section
+  content += 'FLASHCARDS\n';
+  content += '-'.repeat(11) + '\n\n';
+  
+  flashcards.forEach((card, index) => {
+    content += `Card ${index + 1} (${card.type.toUpperCase()})\n`;
+    content += `Difficulty: ${card.difficulty}\n`;
+    if (card.tags.length > 0) {
+      content += `Tags: ${card.tags.join(', ')}\n`;
+    }
+    content += `\nQ: ${card.question}\n`;
+    content += `A: ${card.answer}\n`;
+    content += '\n' + '-'.repeat(40) + '\n\n';
+  });
+  
+  // Footer
+  content += `Generated on: ${new Date().toLocaleString()}\n`;
+  content += `Total flashcards: ${flashcards.length}\n`;
+  
+  // Create and download the file
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

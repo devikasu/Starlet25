@@ -32,6 +32,31 @@ const FlashcardViewer: React.FC<FlashcardViewerProps> = ({ flashcards, onClose }
     setFlippedCards(prev => new Set(prev).add(currentCard.id));
   };
 
+  const listenToCard = () => {
+    // Stop any current speech
+    speechSynthesis.cancel();
+    
+    // Create utterance for question
+    const questionUtterance = new SpeechSynthesisUtterance(currentCard.question);
+    questionUtterance.rate = 0.9;
+    questionUtterance.pitch = 1.0;
+    questionUtterance.volume = 1.0;
+    
+    // Create utterance for answer
+    const answerUtterance = new SpeechSynthesisUtterance(currentCard.answer);
+    answerUtterance.rate = 0.9;
+    answerUtterance.pitch = 1.0;
+    answerUtterance.volume = 1.0;
+    
+    // Queue the utterances to play sequentially
+    speechSynthesis.speak(questionUtterance);
+    
+    // Add a small pause between question and answer
+    setTimeout(() => {
+      speechSynthesis.speak(answerUtterance);
+    }, 1000);
+  };
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy': return 'bg-green-100 text-green-800';
@@ -111,6 +136,16 @@ const FlashcardViewer: React.FC<FlashcardViewerProps> = ({ flashcards, onClose }
               <p className="text-gray-700 leading-relaxed">
                 {showAnswer ? currentCard.answer : currentCard.question}
               </p>
+            </div>
+
+            {/* Listen Button */}
+            <div className="mt-4 text-center">
+              <button
+                onClick={listenToCard}
+                className="bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded transition-colors text-sm"
+              >
+                🔊 Listen
+              </button>
             </div>
 
             {/* Tags */}
