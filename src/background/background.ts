@@ -2,7 +2,19 @@
 import { processExtractedText, ProcessedText } from '../utils/textProcessor';
 import { summarizeText, SummarizationResult } from '../utils/summarizer';
 
-
+// Centralized function to inject content script
+async function injectContentScript(tabId: number) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['assets/content.js'],
+    });
+    console.log("✅ Starlet25: Content script injected into tab", tabId);
+  } catch (error) {
+    console.error("❌ Starlet25: Failed to inject content script:", error);
+    throw error;
+  }
+}
 
 interface ExtractedText {
   type: 'PAGE_TEXT';
@@ -107,13 +119,22 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'EXTRACT_CURRENT_PAGE') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'EXTRACT_TEXT' }, (response) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.id) {
+        sendResponse({ success: false, error: 'No active tab found' });
+        return;
+      }
+
+      try {
+        await injectContentScript(tab.id);
+
+        chrome.tabs.sendMessage(tab.id, { action: "EXTRACT_TEXT" }, (response) => {
           if (chrome.runtime.lastError) {
-            console.warn("Starlet25: Content script not ready for extraction", chrome.runtime.lastError.message);
+            console.warn("⚠️ Starlet25: Content script not ready", chrome.runtime.lastError.message);
             sendResponse({ success: false, error: 'Content script not ready' });
           } else if (response && response.text) {
+            console.log("✅ Starlet25: Got response", response);
             const processed = processExtractedText(response.text);
             const summarization = summarizeText(response.text);
             const extractedData: ExtractedText = {
@@ -134,8 +155,9 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
             sendResponse({ success: false, error: 'No text extracted' });
           }
         });
-      } else {
-        sendResponse({ success: false, error: 'No active tab found' });
+      } catch (error) {
+        console.error("❌ Starlet25: Failed to inject content script for extraction:", error);
+        sendResponse({ success: false, error: 'Content script injection failed' });
       }
     });
     return true;
@@ -147,45 +169,36 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     
     console.log(`Starlet25: Toggling accessibility to ${enabled}`);
     
-    // First, try to inject content script if not already present
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        const tabId = tabs[0].id;
-        
-        // Try to inject content script first
-        chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          files: ['assets/content.js']
-        }).then(() => {
-          console.log(`Starlet25: Content script injected successfully`);
-          
-          // Small delay to ensure script is loaded
-          setTimeout(() => {
-            // Then send the toggle message
-            chrome.tabs.sendMessage(tabId, { 
-              action: 'TOGGLE_ACCESSIBILITY', 
-              enabled: enabled 
-            }, (response) => {
-              if (chrome.runtime.lastError) {
-                console.warn("Starlet25: Content script not ready for accessibility toggle", chrome.runtime.lastError.message);
-                sendResponse({ success: false, error: 'Content script not responding' });
-              } else if (response && response.success) {
-                console.log(`Starlet25: Accessibility ${enabled ? 'enabled' : 'disabled'} successfully`);
-                sendResponse({ success: true });
-              } else {
-                console.error('Starlet25: Failed to toggle accessibility - no response');
-                sendResponse({ success: false, error: 'Failed to toggle accessibility' });
-              }
-            });
-          }, 200);
-          
-        }).catch((injectionError) => {
-          console.error('Starlet25: Error injecting content script:', injectionError);
-          sendResponse({ success: false, error: 'Content script injection failed' });
-        });
-      } else {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.id) {
         console.error('Starlet25: No active tab found');
         sendResponse({ success: false, error: 'No active tab found' });
+        return;
+      }
+
+      try {
+        await injectContentScript(tab.id);
+        
+        // Then send the toggle message
+        chrome.tabs.sendMessage(tab.id, { 
+          action: 'TOGGLE_ACCESSIBILITY', 
+          enabled: enabled 
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn("⚠️ Starlet25: Content script not ready for accessibility toggle", chrome.runtime.lastError.message);
+            sendResponse({ success: false, error: 'Content script not responding' });
+          } else if (response && response.success) {
+            console.log(`✅ Starlet25: Accessibility ${enabled ? 'enabled' : 'disabled'} successfully`);
+            sendResponse({ success: true });
+          } else {
+            console.error('❌ Starlet25: Failed to toggle accessibility - no response');
+            sendResponse({ success: false, error: 'Failed to toggle accessibility' });
+          }
+        });
+      } catch (error) {
+        console.error('❌ Starlet25: Error injecting content script:', error);
+        sendResponse({ success: false, error: 'Content script injection failed' });
       }
     });
     return true;
@@ -203,12 +216,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     console.log(`Starlet25: Tab ${tabId} completed loading: ${tab.url}`);
     
     // Small delay to ensure content script has loaded
-    setTimeout(() => {
-      // Check if accessibility is enabled
-      chrome.storage.local.get(['accessibilityEnabled']).then((result) => {
+    setTimeout(async () => {
+      try {
+        // Check if accessibility is enabled
+        const result = await chrome.storage.local.get(['accessibilityEnabled']);
         const accessibilityEnabled = result.accessibilityEnabled === true;
         
-        // Extract text
+        // Always inject content script first to ensure it's available
+        await injectContentScript(tabId);
+        
+        // Extract text after ensuring content script is injected
         chrome.tabs.sendMessage(tabId, { action: 'EXTRACT_TEXT' }, (response) => {
           if (chrome.runtime.lastError) {
             console.log(`Starlet25: Content script not ready for text extraction on tab ${tabId}:`, chrome.runtime.lastError.message);
@@ -217,36 +234,24 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           }
         });
         
-        // If accessibility is enabled, ensure content script is injected
+        // If accessibility is enabled, send the toggle message
         if (accessibilityEnabled) {
-          console.log(`Starlet25: Accessibility enabled, ensuring content script is injected on tab ${tabId}`);
+          console.log(`Starlet25: Accessibility enabled, sending toggle message on tab ${tabId}`);
           
-          chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ['assets/content.js']
-          }).then(() => {
-            console.log(`Starlet25: Content script injected on tab ${tabId}`);
-            
-            // Send accessibility toggle message
-            setTimeout(() => {
-              chrome.tabs.sendMessage(tabId, { 
-                action: 'TOGGLE_ACCESSIBILITY', 
-                enabled: true 
-              }, (response) => {
-                if (chrome.runtime.lastError) {
-                  console.log(`Starlet25: Content script not ready for accessibility on tab ${tabId}:`, chrome.runtime.lastError.message);
-                } else if (response) {
-                  console.log(`Starlet25: Accessibility enabled on tab ${tabId}`);
-                }
-              });
-            }, 500);
-          }).catch((error) => {
-            console.log(`Starlet25: Content script already injected or injection failed on tab ${tabId}:`, error);
+          chrome.tabs.sendMessage(tabId, { 
+            action: 'TOGGLE_ACCESSIBILITY', 
+            enabled: true 
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.log(`⚠️ Starlet25: Content script not ready for accessibility on tab ${tabId}:`, chrome.runtime.lastError.message);
+            } else if (response) {
+              console.log(`✅ Starlet25: Accessibility enabled on tab ${tabId}`);
+            }
           });
         }
-      }).catch((error) => {
-        console.error('Starlet25: Error checking accessibility status:', error);
-      });
+      } catch (error) {
+        console.log(`ℹ️ Starlet25: Content script already injected or injection failed on tab ${tabId}:`, error);
+      }
     }, 1000);
   }
 });
