@@ -22,7 +22,7 @@
     "default_title": "Starlet25"
   },
   "icons": {
-    "48": "public/icon.png",
-    "128": "public/icon.png"
+    "48": "icon.png",
+    "128": "icon.png"
   }
 }

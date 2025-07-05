@@ -13,8 +13,16 @@ export default defineConfig({
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
-        assetFileNames: '[name].[ext]'
+        assetFileNames: (assetInfo) => {
+          // Keep icon.png in root for Chrome extension
+          if (assetInfo.name === 'icon.png') {
+            return 'icon.png';
+          }
+          return '[name].[ext]';
+        }
       }
-    }
+    },
+    // Ensure public directory is copied
+    copyPublicDir: true
   }
 })
