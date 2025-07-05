@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
-import { SummarizationResult, Summary, Flashcard } from '../utils/summarizer';
+import { SummarizationResult, Summary } from '../utils/summarizer';
 import FlashcardViewer from '../components/FlashcardViewer';
 
 interface StoredText {

@@ -68,7 +68,7 @@ async function storeExtractedText(data: ExtractedText): Promise<void> {
 }
 
 // Handle messages from content scripts
-chrome.runtime.onMessage.addListener((message: ExtractedText, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: ExtractedText, _sender, sendResponse) => {
   if (message.type === 'PAGE_TEXT') {
     // Quick peek of extracted summary
     console.log(`[${new Date().toISOString()}] Extracted summary:`, message.text.slice(0, 200));
@@ -78,7 +78,7 @@ chrome.runtime.onMessage.addListener((message: ExtractedText, sender, sendRespon
 });
 
 // Handle messages from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'GET_STORED_TEXTS') {
     chrome.storage.local.get(null).then((data) => {
       const textEntries = Object.entries(data)

@@ -23,34 +23,6 @@ export interface SummarizationResult {
   generatedAt: number;
 }
 
-// Common question templates for different content types
-const QUESTION_TEMPLATES = {
-  definition: [
-    "What is {term}?",
-    "Define {term}.",
-    "What does {term} mean?",
-    "How would you describe {term}?"
-  ],
-  concept: [
-    "How does {concept} work?",
-    "What is the main idea behind {concept}?",
-    "Explain {concept} in simple terms.",
-    "What are the key principles of {concept}?"
-  ],
-  fact: [
-    "What is {fact}?",
-    "When did {fact} happen?",
-    "Where is {fact} located?",
-    "Who is responsible for {fact}?"
-  ],
-  process: [
-    "What are the steps to {process}?",
-    "How do you {process}?",
-    "What is the process of {process}?",
-    "What sequence of actions leads to {process}?"
-  ]
-};
-
 // Common technical terms and concepts
 const TECHNICAL_TERMS = [
   'algorithm', 'API', 'database', 'framework', 'function', 'method', 'object', 'class',
@@ -74,7 +46,6 @@ const PROGRAMMING_CONCEPTS = [
 
 export function summarizeText(text: string): SummarizationResult {
   const sentences = extractSentences(text);
-  const words = extractWords(text);
   const topics = identifyTopics(text);
   const difficulty = assessDifficulty(text);
   
@@ -221,7 +192,6 @@ function extractKeyPoints(sentences: string[]): string[] {
 
 function generateFlashcards(text: string, topics: string[], difficulty: 'easy' | 'medium' | 'hard'): Flashcard[] {
   const flashcards: Flashcard[] = [];
-  const words = extractWords(text);
   const sentences = extractSentences(text);
   
   // Generate definition cards for technical terms

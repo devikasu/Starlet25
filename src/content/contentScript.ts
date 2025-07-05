@@ -164,7 +164,7 @@ function sendTextToBackground(): void {
   console.log('Starlet25: Extracted text length:', text.length);
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'EXTRACT_TEXT') {
     const text = extractReadableText();
     sendResponse({ text, url: window.location.href, title: document.title });
