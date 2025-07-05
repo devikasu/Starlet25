@@ -20,12 +20,17 @@ export default defineConfig({
   ],
   build: {
     outDir: 'dist',
+    // Ensure all dependencies are bundled
+    target: 'es2020',
+    minify: 'esbuild',
     rollupOptions: {
       input: {
         popup: 'index.html',
         background: 'src/background/background.ts',
         content: 'src/content/contentScript.ts'
       },
+      // Prevent external dependencies
+      external: [],
       output: {
         entryFileNames: 'assets/[name].js',
         chunkFileNames: 'assets/[name].js',
