@@ -310,12 +310,26 @@ const Popup: React.FC = () => {
           🎙️ Voice Command
         </button>
 
+        {loading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500 mr-2"></div>
+              <p className="text-blue-700 text-sm">Processing page content...</p>
+            </div>
+          </div>
+        )}
+        
         {error && (
-          <div className="text-red-500 text-sm mb-3">{error}</div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+            <div className="flex items-center">
+              <span className="text-red-500 mr-2">⚠️</span>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          </div>
         )}
       </div>
 
-      {currentText && (
+      {currentText ? (
         <div className="mb-4 p-3 bg-gray-50 rounded border">
           <h3 className="font-semibold text-gray-800 mb-2">Current Page Text</h3>
           {currentProcessed && renderTextStats(currentProcessed)}
@@ -383,6 +397,21 @@ const Popup: React.FC = () => {
             {truncateText(currentText, 150)}
           </p>
         </div>
+      ) : !loading && !error && (
+        <div className="mb-4 p-4 bg-gray-50 rounded border">
+          <div className="text-center">
+            <div className="text-2xl mb-2">🔍</div>
+            <h3 className="font-medium text-gray-800 mb-2">No Content Found</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              This page doesn't appear to have extractable content
+            </p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+              <p className="text-xs text-yellow-700">
+                💡 <strong>Try:</strong> Navigate to an article, documentation, or text-heavy page
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {storedTexts.length > 0 && (
@@ -438,10 +467,32 @@ const Popup: React.FC = () => {
         </div>
       )}
 
-      {storedTexts.length === 0 && !currentText && (
-        <div className="text-center text-gray-500 py-8">
-          <p>No summarized content yet.</p>
-          <p className="text-sm">Click "📄 Summarize Page" to get started.</p>
+      {storedTexts.length === 0 && !currentText && !loading && (
+        <div className="text-center py-8">
+          <div className="mb-4">
+            <div className="text-4xl mb-2">📚</div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Welcome to Starlet25</h3>
+            <p className="text-gray-600 mb-4">Your AI-powered learning companion</p>
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <h4 className="font-medium text-blue-800 mb-2">🚀 Get Started</h4>
+            <p className="text-sm text-blue-700 mb-3">
+              Click "📄 Summarize Page" to extract and learn from any webpage
+            </p>
+            <div className="text-xs text-blue-600 space-y-1">
+              <p>• 📖 Extract main content from articles</p>
+              <p>• 🧠 Generate AI-powered summaries</p>
+              <p>• 🎯 Create learning flashcards</p>
+              <p>• 🔊 Listen to summaries with text-to-speech</p>
+            </div>
+          </div>
+          
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-xs text-gray-600">
+              💡 <strong>Tip:</strong> Works best with articles, documentation, and educational content
+            </p>
+          </div>
         </div>
       )}
 
