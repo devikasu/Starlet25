@@ -1,24 +1,40 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'manifest.json',
+          dest: '.'  // Copies to dist root
+        },
+        {
+          src: 'public/icon.png',
+          dest: '.'  // Also copy icon if needed
+        }
+      ]
+    })
+  ],
   build: {
+    outDir: 'dist',
     rollupOptions: {
       input: {
-        popup: 'src/popup/popup.tsx',
+        popup: 'index.html',
         background: 'src/background/background.ts',
         content: 'src/content/contentScript.ts'
       },
       output: {
-        entryFileNames: '[name].js',
-        chunkFileNames: '[name].js',
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
         assetFileNames: (assetInfo) => {
           // Keep icon.png in root for Chrome extension
           if (assetInfo.name === 'icon.png') {
             return 'icon.png';
           }
-          return '[name].[ext]';
+          return 'assets/[name].[ext]';
         }
       }
     },
