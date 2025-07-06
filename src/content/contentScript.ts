@@ -1,14 +1,7 @@
 // Content script for extracting main page text
 // Avoids navbars, footers, sidebars, and other non-content elements
 
-console.log('🔊 Starlet25 content script loaded. Waiting for Alt+N...');
-
-// Import voice assistant
-import { voiceAssistant } from '../utils/voiceAssistant';
-
-// Log voice assistant initialization
-console.log('🎤 Starlet25: Voice assistant imported:', !!voiceAssistant);
-console.log('🎤 Starlet25: Voice assistant supported:', voiceAssistant.isSupported());
+console.log('Starlet25 content script loaded');
 
 interface ExtractedText {
   type: 'PAGE_TEXT';
@@ -16,173 +9,6 @@ interface ExtractedText {
   url: string;
   title: string;
   timestamp: number;
-}
-
-// Accessibility state
-let accessibilityEnabled = false;
-let keydownListener: ((event: KeyboardEvent) => void) | null = null;
-
-// Check accessibility status on load
-async function checkAccessibilityStatus() {
-  try {
-    const result = await chrome.storage.local.get(['accessibilityEnabled']);
-    accessibilityEnabled = result.accessibilityEnabled === true;
-    
-    console.log('Starlet25: Checking accessibility status:', accessibilityEnabled);
-    
-    if (accessibilityEnabled && !keydownListener) {
-      console.log('Starlet25: Enabling accessibility listener');
-      attachAccessibilityListener();
-    } else if (!accessibilityEnabled && keydownListener) {
-      console.log('Starlet25: Disabling accessibility listener');
-      removeAccessibilityListener();
-    }
-    
-    // Log current state for debugging
-    console.log('Starlet25: Current state - accessibilityEnabled:', accessibilityEnabled, 'keydownListener:', !!keydownListener);
-  } catch (error) {
-    console.error('Starlet25: Error checking accessibility status:', error);
-  }
-}
-
-// Attach accessibility keyboard listener
-function attachAccessibilityListener() {
-  if (keydownListener) return; // Already attached
-
-  keydownListener = (event: KeyboardEvent) => {
-    // Check for Alt+N (case insensitive)
-    if (event.altKey && event.key.toLowerCase() === 'n') {
-      event.preventDefault();
-      event.stopPropagation();
-      
-      console.log('Starlet25: Alt+N pressed - reading content');
-      
-      // Add visual feedback immediately
-      showReadingIndicator();
-      
-      // Read content
-      readVisibleContent();
-    }
-  };
-
-  document.addEventListener('keydown', keydownListener, true);
-  console.log('Starlet25: Accessibility listener attached (Alt+N to read content)');
-  
-  // Add a test to verify the listener is working
-  setTimeout(() => {
-    console.log('Starlet25: Accessibility listener status - enabled:', accessibilityEnabled, 'listener attached:', !!keydownListener);
-  }, 1000);
-}
-
-// Remove accessibility keyboard listener
-function removeAccessibilityListener() {
-  if (keydownListener) {
-    document.removeEventListener('keydown', keydownListener, true);
-    keydownListener = null;
-    console.log('Starlet25: Accessibility listener removed');
-  }
-}
-
-// Read visible content using SpeechSynthesis
-function readVisibleContent() {
-  try {
-    const visibleText = extractReadableText();
-    
-    if (!visibleText || visibleText.trim().length === 0) {
-      speakText('No visible content found on this page.');
-      return;
-    }
-
-    // Limit text length to avoid very long speech
-    const maxLength = 500;
-    const textToRead = visibleText.length > maxLength 
-      ? visibleText.substring(0, maxLength) + '... (content truncated)'
-      : visibleText;
-
-    speakText(textToRead);
-    
-  } catch (error) {
-    console.error('Starlet25: Error reading content:', error);
-    speakText('Error reading page content.');
-  }
-}
-
-// Speak text using SpeechSynthesis
-function speakText(text: string) {
-  if ('speechSynthesis' in window) {
-    // Stop any current speech
-    speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9; // Slightly slower for better comprehension
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    // Add event listeners for better user feedback
-    utterance.onstart = () => {
-      console.log('Starlet25: Started reading content aloud');
-      // Add visual feedback
-      showReadingIndicator();
-    };
-    
-    utterance.onend = () => {
-      console.log('Starlet25: Finished reading content');
-      hideReadingIndicator();
-    };
-    
-    utterance.onerror = (event) => {
-      console.error('Starlet25: Speech error:', event.error);
-      hideReadingIndicator();
-    };
-    
-    speechSynthesis.speak(utterance);
-  } else {
-    console.error('Starlet25: Speech synthesis not supported');
-  }
-}
-
-// Show visual indicator that content is being read
-function showReadingIndicator() {
-  // Remove existing indicator
-  hideReadingIndicator();
-  
-  const indicator = document.createElement('div');
-  indicator.id = 'starlet25-reading-indicator';
-  indicator.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #10b981;
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    z-index: 10000;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    animation: starlet25-pulse 1.5s infinite;
-  `;
-  indicator.textContent = '🔊 Reading content...';
-  
-  // Add pulse animation
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes starlet25-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-  `;
-  document.head.appendChild(style);
-  
-  document.body.appendChild(indicator);
-}
-
-// Hide reading indicator
-function hideReadingIndicator() {
-  const indicator = document.getElementById('starlet25-reading-indicator');
-  if (indicator) {
-    indicator.remove();
-  }
 }
 
 function getMainContent(): HTMLElement | null {
@@ -200,97 +26,70 @@ function getMainContent(): HTMLElement | null {
 
   for (const selector of selectors) {
     const element = document.querySelector(selector);
-    if (element instanceof HTMLElement) {
-      return element;
+    if (element) {
+      return element as HTMLElement;
     }
   }
 
-  const body = document.body as HTMLElement;
-  const textContainers = Array.from(body.querySelectorAll('div, section, article, main'))
-    .filter(el => el instanceof HTMLElement) as HTMLElement[];
+  // Fallback: find the largest text container
+  const textContainers = Array.from(document.querySelectorAll('div, section, p'))
+    .filter(el => {
+      const text = el.textContent || '';
+      return text.length > 200 && !el.querySelector('nav, header, footer, aside');
+    })
+    .sort((a, b) => (b.textContent?.length || 0) - (a.textContent?.length || 0));
 
-  let largestContainer: HTMLElement = body;
-  let maxTextLength = body.innerText.length;
-
-  textContainers.forEach(container => {
-    const textLength = container.innerText.length;
-    if (textLength > maxTextLength && textLength > 100) {
-      maxTextLength = textLength;
-      largestContainer = container;
-    }
-  });
-
-  return largestContainer;
+  return textContainers[0] as HTMLElement || null;
 }
 
 function removeNonContentElements(element: HTMLElement): void {
-  const selectorsToRemove = [
+  // Remove navigation elements
+  const navSelectors = [
     'nav',
     'header',
     'footer',
     'aside',
     '.nav',
     '.navigation',
-    '.navbar',
-    '.header',
-    '.footer',
-    '.sidebar',
-    '.advertisement',
-    '.ads',
-    '.ad',
-    '.social-share',
-    '.share-buttons',
-    '.comments',
-    '.comment-section',
-    '.related-posts',
-    '.recommendations',
-    '.breadcrumb',
-    '.breadcrumbs',
     '.menu',
-    '.menu-item',
-    '.search',
-    '.search-box',
-    '.newsletter',
-    '.subscribe',
-    '.cookie-notice',
-    '.privacy-notice',
+    '.sidebar',
+    '.footer',
+    '.header',
+    '[role="navigation"]',
+    '[role="banner"]',
+    '[role="contentinfo"]',
+    '[role="complementary"]'
+  ];
+
+  navSelectors.forEach(selector => {
+    const elements = element.querySelectorAll(selector);
+    elements.forEach(el => el.remove());
+  });
+
+  // Remove common non-content elements
+  const nonContentSelectors = [
+    '.ad',
+    '.advertisement',
     '.banner',
     '.popup',
     '.modal',
     '.overlay',
-    '[role="navigation"]',
-    '[role="banner"]',
-    '[role="complementary"]',
-    '[role="contentinfo"]',
-    '[aria-label*="navigation"]',
-    '[aria-label*="menu"]',
-    '[class*="nav"]',
-    '[class*="menu"]',
-    '[class*="header"]',
-    '[class*="footer"]',
-    '[class*="sidebar"]',
-    '[class*="ad"]',
-    '[id*="nav"]',
-    '[id*="menu"]',
-    '[id*="header"]',
-    '[id*="footer"]',
-    '[id*="sidebar"]',
-    '[id*="ad"]'
+    '.cookie-banner',
+    '.newsletter-signup',
+    '.social-share',
+    '.comments',
+    '.related-posts',
+    '.recommendations'
   ];
 
-  selectorsToRemove.forEach(selector => {
-    element.querySelectorAll(selector).forEach(el => {
-      if (el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-    });
+  nonContentSelectors.forEach(selector => {
+    const elements = element.querySelectorAll(selector);
+    elements.forEach(el => el.remove());
   });
 
-  element.querySelectorAll('script, style, noscript, iframe, embed, object').forEach(el => {
-    if (el.parentNode) {
-      el.parentNode.removeChild(el);
-    }
-  });
+  // Remove script and style elements
+  const scriptAndStyleElements = element.querySelectorAll('script, style, noscript');
+  scriptAndStyleElements.forEach(el => el.remove());
 }
 
 function cleanText(text: string): string {
@@ -349,55 +148,6 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'EXTRACT_TEXT') {
     const text = extractReadableText();
     sendResponse({ text, url: window.location.href, title: document.title });
-  }
-  
-  // Handle accessibility toggle
-  if (request.action === 'TOGGLE_ACCESSIBILITY') {
-    const { enabled } = request;
-    accessibilityEnabled = enabled;
-    
-    console.log('Starlet25: Toggling accessibility to:', enabled);
-    
-    if (enabled) {
-      attachAccessibilityListener();
-    } else {
-      removeAccessibilityListener();
-      hideReadingIndicator();
-    }
-    
-    // Verify the state after toggle
-    setTimeout(() => {
-      console.log('Starlet25: After toggle - accessibilityEnabled:', accessibilityEnabled, 'keydownListener:', !!keydownListener);
-    }, 100);
-    
-    sendResponse({ success: true });
-  }
-  
-  // Handle accessibility status check
-  if (request.action === 'GET_ACCESSIBILITY_STATUS') {
-    sendResponse({ enabled: accessibilityEnabled });
-  }
-  
-  // Handle voice assistant start
-  if (request.action === 'START_VOICE_ASSISTANT') {
-    console.log('🎤 Starlet25: Received START_VOICE_ASSISTANT command in content script');
-    try {
-      console.log('🎤 Starlet25: voiceAssistant object:', voiceAssistant);
-      console.log('🎤 Starlet25: voiceAssistant.isSupported():', voiceAssistant.isSupported());
-      
-      if (voiceAssistant.isSupported()) {
-        console.log('🎤 Starlet25: Voice assistant is supported, calling startListening()');
-        voiceAssistant.startListening();
-        console.log('🎤 Starlet25: startListening() called successfully');
-        sendResponse({ success: true });
-      } else {
-        console.error('🎤 Starlet25: Voice assistant not supported');
-        sendResponse({ success: false, error: 'Voice assistant not supported' });
-      }
-    } catch (error) {
-      console.error('🎤 Starlet25: Error starting voice assistant:', error);
-      sendResponse({ success: false, error: 'Failed to start voice assistant' });
-    }
   }
   
   // Handle saturation filter
@@ -459,33 +209,13 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 });
 
-// Listen for storage changes
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local' && changes.accessibilityEnabled) {
-    accessibilityEnabled = changes.accessibilityEnabled.newValue === true;
-    
-    console.log('Starlet25: Storage changed - accessibilityEnabled:', accessibilityEnabled);
-    
-    if (accessibilityEnabled && !keydownListener) {
-      console.log('Starlet25: Enabling accessibility from storage change');
-      attachAccessibilityListener();
-    } else if (!accessibilityEnabled && keydownListener) {
-      console.log('Starlet25: Disabling accessibility from storage change');
-      removeAccessibilityListener();
-      hideReadingIndicator();
-    }
-  }
-});
-
 // Initialize on page load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     sendTextToBackground();
-    checkAccessibilityStatus();
   });
 } else {
   sendTextToBackground();
-  checkAccessibilityStatus();
 }
 
 let lastTextLength = 0;
@@ -501,40 +231,3 @@ observer.observe(document.body, {
   childList: true,
   subtree: true
 });
-
-// Clean up on page unload
-window.addEventListener('beforeunload', () => {
-  removeAccessibilityListener();
-  hideReadingIndicator();
-});
-
-// Test function to manually trigger reading (for debugging)
-function testAccessibilityReading() {
-  console.log('Starlet25: Testing accessibility reading...');
-  console.log('Starlet25: Current state - accessibilityEnabled:', accessibilityEnabled, 'keydownListener:', !!keydownListener);
-  
-  if (accessibilityEnabled) {
-    readVisibleContent();
-  } else {
-    console.log('Starlet25: Accessibility is disabled');
-  }
-}
-
-// Expose test function globally for debugging
-(window as any).testStarlet25Accessibility = testAccessibilityReading;
-
-// Expose voice assistant test function globally for debugging
-(window as any).testStarlet25VoiceAssistant = () => {
-  console.log('🎤 Starlet25: Testing voice assistant manually...');
-  console.log('🎤 Starlet25: voiceAssistant object:', voiceAssistant);
-  console.log('🎤 Starlet25: voiceAssistant.isSupported():', voiceAssistant.isSupported());
-  
-  if (voiceAssistant.isSupported()) {
-    console.log('🎤 Starlet25: Starting voice assistant test...');
-    voiceAssistant.startListening();
-    return 'Voice assistant started successfully';
-  } else {
-    console.error('🎤 Starlet25: Voice assistant not supported');
-    return 'Voice assistant not supported';
-  }
-};

@@ -1,139 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
 import { SummarizationResult, Summary } from '../utils/summarizer';
 import { downloadAsTxt } from '../utils/fileExport';
-import { listenForCommand } from '../utils/voiceCommand';
 import FlashcardViewer from '../components/FlashcardViewer';
-import FlashcardOverlay from '../components/FlashcardOverlay';
-
-interface StoredText {
-  id: string;
-  text: string;
-  url: string;
-  title: string;
-  timestamp: number;
-  processed?: ProcessedText;
-  summarization?: SummarizationResult;
-}
 
 const Popup: React.FC = () => {
-  const [storedTexts, setStoredTexts] = useState<StoredText[]>([]);
   const [currentText, setCurrentText] = useState<string>('');
   const [currentProcessed, setCurrentProcessed] = useState<ProcessedText | null>(null);
   const [currentSummarization, setCurrentSummarization] = useState<SummarizationResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
-  const [accessibilityEnabled, setAccessibilityEnabled] = useState<boolean>(false);
-  const [accessibilityLoading, setAccessibilityLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'summary' | 'flashcards'>('summary');
   const [saturation, setSaturation] = useState<number>(100);
-  const [showADHDFlashcards, setShowADHDFlashcards] = useState<boolean>(false);
-  const [selectedDeck, setSelectedDeck] = useState<string>('focus');
-  const [autoAdvance, setAutoAdvance] = useState<boolean>(false);
-  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
-
-  useEffect(() => {
-    loadStoredTexts();
-    loadAccessibilityStatus();
-  }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Only trigger shortcuts when popup is focused
-      if (event.ctrlKey && event.altKey) {
-        switch (event.key.toLowerCase()) {
-          case 's':
-            event.preventDefault();
-            if (!loading) {
-              extractCurrentPage();
-            }
-            break;
-          case 'r':
-            event.preventDefault();
-            if (!loading) {
-              rescanPage();
-            }
-            break;
-          case 'q':
-            event.preventDefault();
-            if (!loading) {
-              handleVoiceCommand();
-            }
-            break;
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [loading]); // Re-run when loading state changes
-
-  const loadAccessibilityStatus = async () => {
-    try {
-      const result = await chrome.storage.local.get(['accessibilityEnabled']);
-      setAccessibilityEnabled(result.accessibilityEnabled === true);
-    } catch (err) {
-      console.error('Error loading accessibility status:', err);
-    }
-  };
-
-  const toggleAccessibility = async () => {
-    setAccessibilityLoading(true);
-    try {
-      const newState = !accessibilityEnabled;
-      await chrome.storage.local.set({ accessibilityEnabled: newState });
-      setAccessibilityEnabled(newState);
-      
-      // Send message to background script to handle the toggle
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({ 
-          action: 'TOGGLE_ACCESSIBILITY', 
-          enabled: newState 
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(response);
-          }
-        });
-      });
-      
-      if (response && (response as any).success) {
-        console.log('Starlet25: Accessibility toggled successfully');
-      } else {
-        throw new Error('Failed to toggle accessibility');
-      }
-    } catch (err) {
-      console.error('Error toggling accessibility:', err);
-      setError('Failed to toggle accessibility');
-    } finally {
-      setAccessibilityLoading(false);
-    }
-  };
-
-  const loadStoredTexts = async () => {
-    try {
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'GET_STORED_TEXTS' }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(response);
-          }
-        });
-      });
-      
-      if (response && (response as any).texts) {
-        setStoredTexts((response as any).texts);
-      }
-    } catch (err) {
-      console.error('Error loading stored texts:', err);
-    }
-  };
 
   const extractCurrentPage = async () => {
     setLoading(true);
@@ -158,7 +37,6 @@ const Popup: React.FC = () => {
         if ((response as any).summarization) {
           setCurrentSummarization((response as any).summarization);
         }
-        await loadStoredTexts(); // Refresh the list
       } else {
         setError((response as any).error || 'Failed to extract text');
       }
@@ -192,7 +70,6 @@ const Popup: React.FC = () => {
         if ((response as any).summarization) {
           setCurrentSummarization((response as any).summarization);
         }
-        await loadStoredTexts(); // Refresh the list
       } else {
         setError((response as any).error || 'Failed to re-scan page');
       }
@@ -203,65 +80,12 @@ const Popup: React.FC = () => {
     }
   };
 
-  const clearAllTexts = async () => {
-    try {
-      await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'CLEAR_STORED_TEXTS' }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(response);
-          }
-        });
-      });
-      
-      setStoredTexts([]);
-      setCurrentText('');
-      setCurrentProcessed(null);
-      setCurrentSummarization(null);
-    } catch (err) {
-      console.error('Error clearing texts:', err);
-    }
-  };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      // Show a brief success message
-      const originalText = document.title;
-      document.title = 'Copied!';
-      setTimeout(() => {
-        document.title = originalText;
-      }, 1000);
+      console.log('Text copied to clipboard');
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
     });
-  };
-
-  const speakSummary = () => {
-    if (currentSummarization?.summary.text) {
-      try {
-        const utterance = new SpeechSynthesisUtterance(currentSummarization.summary.text);
-        utterance.rate = 0.9; // Slightly slower for better comprehension
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-        
-        // Add event listeners for better user feedback
-        utterance.onstart = () => {
-          console.log('Speech started');
-        };
-        
-        utterance.onend = () => {
-          console.log('Speech ended');
-        };
-        
-        utterance.onerror = (event) => {
-          console.error('Speech error:', event.error);
-        };
-        
-        speechSynthesis.speak(utterance);
-      } catch (error) {
-        console.error('Error with text-to-speech:', error);
-        // Fallback: try to use a different approach or show an error message
-      }
-    }
   };
 
   const downloadText = () => {
@@ -270,7 +94,7 @@ const Popup: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `extracted_text_${new Date().toISOString().split('T')[0]}.txt`;
+      a.download = 'extracted-text.txt';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -278,221 +102,76 @@ const Popup: React.FC = () => {
     }
   };
 
-  const downloadBrailleTxt = () => {
-    if (!currentSummarization) return;
-    let txt = '';
-    if (currentSummarization.summary.text) {
-      txt += 'Summary:\n' + currentSummarization.summary.text + '\n\n';
-    }
-    if (currentSummarization.summary.keyPoints?.length) {
-      txt += 'Key Points:\n';
-      currentSummarization.summary.keyPoints.forEach((kp, i) => {
-        txt += `${i + 1}. ${kp}\n`;
-      });
-      txt += '\n';
-    }
-    if (currentSummarization.flashcards?.length) {
-      txt += 'Flashcards:\n';
-      currentSummarization.flashcards.forEach((card, i) => {
-        txt += `Q${i + 1}: ${card.question}\nA${i + 1}: ${card.answer}\nType: ${card.type}, Difficulty: ${card.difficulty}`;
-        if (card.tags?.length) txt += `, Tags: ${card.tags.join(', ')}`;
-        txt += '\n\n';
-      });
-    }
-    const blob = new Blob([txt], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `summary_flashcards_${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
   const exportAsText = () => {
     if (currentSummarization?.summary && currentSummarization?.flashcards) {
-      const title = currentSummarization.summary.topics.length > 0 
-        ? `${currentSummarization.summary.topics[0]} Study Guide`
-        : 'Study Material';
-      downloadAsTxt(currentSummarization.summary, currentSummarization.flashcards, title);
+      downloadAsTxt(currentSummarization.summary, currentSummarization.flashcards, 'Study Material');
     }
-  };
-
-  const handleVoiceCommand = () => {
-    listenForCommand(() => {
-      // Trigger the same logic as the extract button
-      extractCurrentPage();
-    });
   };
 
   const applySaturationFilter = async (saturationValue: number) => {
     try {
-      // Get the active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (!tab?.id) {
-        console.error('🎨 No active tab found for saturation filter');
-        return;
-      }
+      if (!tab.id) return;
 
-      // Check if we're on a chrome:// page (which won't work)
-      if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://'))) {
-        console.log('🎨 Cannot apply saturation filter to chrome:// pages');
-        return;
-      }
-
-      console.log(`🎨 Applying saturation filter: ${saturationValue}% to tab ${tab.id}`);
-
-      // Try direct injection first (more reliable)
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
+      // Try multiple injection methods for better compatibility
+      const injectionMethods = [
+        // Method 1: Direct content script injection
+        () => chrome.tabs.sendMessage(tab.id!, { 
+          action: 'APPLY_SATURATION_FILTER', 
+          saturation: saturationValue 
+        }),
+        // Method 2: Execute script directly
+        () => chrome.scripting.executeScript({
+          target: { tabId: tab.id! },
           func: (saturation) => {
-            console.log('🎨 Direct saturation injection:', saturation + '%');
-            
-            // Remove existing filter
-            const existingFilter = document.getElementById('starlet25-saturation-filter');
-            if (existingFilter) {
-              existingFilter.remove();
-            }
-            
-            // Apply new filter
-            if (saturation !== 100) {
-              const styleElement = document.createElement('style');
-              styleElement.id = 'starlet25-saturation-filter';
-              styleElement.textContent = `
-                html {
-                  filter: saturate(${saturation}%) !important;
-                }
-              `;
-              document.head.appendChild(styleElement);
-              console.log('🎨 Saturation filter applied directly:', saturation + '%');
-            } else {
-              console.log('🎨 Saturation reset to normal (100%)');
+            const style = document.getElementById('starlet25-saturation-filter') || 
+                         document.createElement('style');
+            style.id = 'starlet25-saturation-filter';
+            style.textContent = `* { filter: saturate(${saturation}%) !important; }`;
+            if (!document.getElementById('starlet25-saturation-filter')) {
+              document.head.appendChild(style);
             }
           },
           args: [saturationValue]
-        });
-        
-        console.log(`🎨 Starlet25: Saturation filter applied directly: ${saturationValue}%`);
-        return;
-      } catch (directError) {
-        console.log('🎨 Direct injection failed, trying message passing:', directError);
+        }),
+        // Method 3: Inject CSS via content script
+        () => chrome.scripting.insertCSS({
+          target: { tabId: tab.id! },
+          css: `* { filter: saturate(${saturationValue}%) !important; }`
+        })
+      ];
+
+      let success = false;
+      for (const method of injectionMethods) {
+        try {
+          await method();
+          success = true;
+          break;
+        } catch (err) {
+          console.log('Injection method failed, trying next...', err);
+          continue;
+        }
       }
 
-      // Fallback: Try message passing
-      try {
-        // Ensure content script is injected
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['assets/content.js'],
-        });
-        
-        // Wait a bit for script to initialize
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Send message
-        const response = await new Promise((resolve, reject) => {
-          chrome.tabs.sendMessage(tab.id!, {
-            action: 'APPLY_SATURATION_FILTER',
-            saturation: saturationValue
-          }, (response) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(response);
-            }
-          });
-        });
-        
-        if (response && (response as any).success) {
-          console.log(`🎨 Starlet25: Saturation filter applied via message: ${saturationValue}%`);
-        } else {
-          console.error('🎨 Failed to apply saturation filter - response:', response);
-        }
-      } catch (messageError) {
-        console.error('🎨 Message passing failed:', messageError);
-        
-        // Final fallback: Try direct injection again with different approach
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: (saturation) => {
-              // Apply filter directly to body as fallback
-              if (saturation === 100) {
-                document.body.style.filter = '';
-                document.documentElement.style.filter = '';
-              } else {
-                document.body.style.filter = `saturate(${saturation}%)`;
-                document.documentElement.style.filter = `saturate(${saturation}%)`;
-              }
-              console.log('🎨 Fallback saturation applied:', saturation + '%');
-            },
-            args: [saturationValue]
-          });
-          console.log(`🎨 Starlet25: Fallback saturation applied: ${saturationValue}%`);
-        } catch (fallbackError) {
-          console.error('🎨 All saturation methods failed:', fallbackError);
-        }
+      if (success) {
+        console.log(`Saturation filter applied: ${saturationValue}%`);
+      } else {
+        console.error('All saturation injection methods failed');
       }
-    } catch (error) {
-      console.error('🎨 Error applying saturation filter:', error);
+    } catch (err) {
+      console.error('Error applying saturation filter:', err);
     }
   };
 
   const handleSaturationChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newSaturation = parseInt(event.target.value);
-    setSaturation(newSaturation);
-    // Apply filter immediately for smooth real-time updates
-    applySaturationFilter(newSaturation);
+    const value = parseInt(event.target.value);
+    setSaturation(value);
+    applySaturationFilter(value);
   };
 
   const resetSaturation = () => {
     setSaturation(100);
     applySaturationFilter(100);
-  };
-
-  // ADHD-friendly flashcard decks
-  const adhdFlashcardDecks = {
-    focus: [
-      "Start with easy tasks to build momentum",
-      "Take one small step at a time",
-      "Use timers to stay on track",
-      "Break big tasks into tiny pieces",
-      "Celebrate every small win",
-      "Remove distractions from your space",
-      "Set clear, simple goals",
-      "Take short breaks when needed"
-    ],
-    study: [
-      "Read one paragraph at a time",
-      "Write down key points as you go",
-      "Use highlighters for important info",
-      "Take breaks every 25 minutes",
-      "Review what you learned",
-      "Ask questions about the material",
-      "Connect new info to what you know",
-      "Practice explaining it to someone"
-    ],
-    work: [
-      "Make a simple to-do list",
-      "Pick your most important task",
-      "Set a timer for focused work",
-      "Put your phone in another room",
-      "Use noise-canceling headphones",
-      "Take a walk when you're stuck",
-      "Ask for help when needed",
-      "Remember: progress over perfection"
-    ]
-  };
-
-  const launchADHDFlashcards = () => {
-    setShowADHDFlashcards(true);
-  };
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
   };
 
   const truncateText = (text: string, maxLength: number = 100) => {
@@ -584,33 +263,6 @@ const Popup: React.FC = () => {
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-xl font-bold text-gray-800">Starlet25</h1>
-          <div className="flex gap-1">
-            <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-              <kbd className="bg-white px-1 rounded text-xs border">Alt+Shift+V</kbd>
-            </div>
-          </div>
-        </div>
-        <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-          <div className="flex items-start">
-            <span className="mr-2">⌨️</span>
-            <div>
-              <p className="font-medium mb-1">Keyboard Shortcuts:</p>
-              <div className="grid grid-cols-1 gap-1">
-                <div className="flex justify-between">
-                  <span>Summarize:</span>
-                  <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+S</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>Rescan:</span>
-                  <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+R</kbd>
-                </div>
-                <div className="flex justify-between">
-                  <span>Quick Summarize:</span>
-                  <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+Q</kbd>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
         <p className="text-sm text-gray-600 mb-3">Extract & Learn</p>
         
@@ -619,7 +271,7 @@ const Popup: React.FC = () => {
           disabled={loading}
           className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          {loading ? 'Summarizing...' : '📄 Summarize Page (Ctrl+Alt+S)'}
+          {loading ? 'Summarizing...' : '📄 Summarize Page'}
         </button>
 
         <button
@@ -627,112 +279,8 @@ const Popup: React.FC = () => {
           disabled={loading}
           className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          {loading ? 'Re-scanning...' : '🔄 Re-scan Page (Ctrl+Alt+R)'}
+          {loading ? 'Re-scanning...' : '🔄 Re-scan Page'}
         </button>
-
-        <button
-          onClick={handleVoiceCommand}
-          disabled={loading}
-          className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
-        >
-          🚀 Quick Summarize (Ctrl+Alt+Q)
-        </button>
-
-        {/* Voice Assistant Section */}
-        <div className="border-t border-gray-200 pt-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-800">Voice Assistant</h3>
-            <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-              <span className="mr-1">🎤</span>
-              Alt+Shift+V
-            </div>
-          </div>
-          
-          <p className="text-xs text-gray-600 mb-3">
-            Full voice control for blind users. Press Alt+Shift+V to start.
-          </p>
-          
-          <div className="bg-purple-50 border border-purple-200 rounded p-3 text-xs text-purple-700">
-            <div className="flex items-start">
-              <span className="mr-2">🎤</span>
-              <div>
-                <p className="font-medium mb-1">Voice Commands Available:</p>
-                <ul className="space-y-1">
-                  <li>• "summarize page" - Extract and summarize content</li>
-                  <li>• "read flashcards" - Read generated flashcards aloud</li>
-                  <li>• "read summary" - Read page summary aloud</li>
-                  <li>• "toggle accessibility" - Turn accessibility on/off</li>
-                  <li>• "help" - List all available commands</li>
-                  <li>• "stop" - Stop current speech or listening</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Accessibility Section */}
-        <div className="border-t border-gray-200 pt-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-800">Accessibility</h3>
-            <div className={`flex items-center text-xs ${
-              accessibilityEnabled ? 'text-green-600' : 'text-gray-500'
-            }`}>
-              <div className={`w-2 h-2 rounded-full mr-2 ${
-                accessibilityEnabled ? 'bg-green-500' : 'bg-gray-400'
-              }`}></div>
-              {accessibilityEnabled ? 'ON' : 'OFF'}
-            </div>
-          </div>
-          
-          <p className="text-xs text-gray-600 mb-3">
-            Toggle voice reading of page content for accessibility
-          </p>
-          
-          <button
-            onClick={toggleAccessibility}
-            disabled={accessibilityLoading}
-            className={`w-full font-medium py-2 px-4 rounded transition-colors ${
-              accessibilityEnabled
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-gray-500 hover:bg-gray-600 text-white'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {accessibilityLoading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Processing...
-              </div>
-            ) : (
-              accessibilityEnabled ? '🟢 Turn Off Accessibility' : '🔴 Turn On Accessibility'
-            )}
-          </button>
-          
-          {accessibilityEnabled && (
-            <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
-              <div className="flex items-start">
-                <span className="mr-2">♿</span>
-                <div>
-                  <p className="font-medium mb-1">Accessibility is active!</p>
-                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+N</kbd> on any page to read content aloud.</p>
-                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+Shift+V</kbd> to start voice assistant.</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {!accessibilityEnabled && (
-            <div className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600">
-              <div className="flex items-start">
-                <span className="mr-2">⌨️</span>
-                <div>
-                  <p className="font-medium mb-1">Keyboard Shortcuts</p>
-                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+N</kbd> to read content aloud (when accessibility enabled).</p>
-                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+Shift+V</kbd> to start voice assistant.</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Saturation Control Section */}
         <div className="border-t border-gray-200 pt-4 mb-4">
@@ -745,134 +293,35 @@ const Popup: React.FC = () => {
           </div>
           
           <p className="text-xs text-gray-600 mb-3">
-            Adjust the color saturation of the current webpage for better visibility
+            Adjust the color saturation of the current webpage
           </p>
           
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
-              <span className="text-xs text-gray-500 w-8">0%</span>
               <input
                 type="range"
                 min="0"
                 max="200"
                 value={saturation}
                 onChange={handleSaturationChange}
-                onInput={handleSaturationChange}
-                disabled={false}
                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                 style={{
-                  background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${saturation/2}%, #f3f4f6 ${saturation/2}%, #f3f4f6 100%)`
+                  background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${saturation/2}%, #3b82f6 ${saturation/2}%, #3b82f6 100%)`
                 }}
               />
-              <span className="text-xs text-gray-500 w-8">200%</span>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-gray-600">
-                {saturation < 100 ? 'Desaturated' : saturation > 100 ? 'Oversaturated' : 'Normal'}
-              </div>
               <button
                 onClick={resetSaturation}
-                disabled={saturation === 100}
-                className="text-xs text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+                className="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded transition-colors"
               >
-                Reset to 100%
+                Reset
               </button>
             </div>
             
-            {false && (
-              <div className="flex items-center justify-center text-xs text-orange-600">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-500 mr-2"></div>
-                Applying filter...
-              </div>
-            )}
-          </div>
-          
-          <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
-            <div className="flex items-start">
-              <span className="mr-2">💡</span>
-              <div>
-                <p className="font-medium mb-1">Saturation Tips:</p>
-                <ul className="space-y-1">
-                  <li>• <strong>0-50%:</strong> Grayscale to muted colors (good for reading)</li>
-                  <li>• <strong>100%:</strong> Normal colors (default)</li>
-                  <li>• <strong>150-200%:</strong> Vibrant colors (good for visual appeal)</li>
-                  <li>• <strong>Reset:</strong> Returns to normal 100% saturation</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ADHD-Friendly Flashcards Section */}
-        <div className="border-t border-gray-200 pt-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-800">ADHD Focus Cards</h3>
-            <div className="text-xs text-indigo-600 bg-indigo-100 px-2 py-1 rounded">
-              <span className="mr-1">🧠</span>
-              Focus Mode
-            </div>
-          </div>
-          
-          <p className="text-xs text-gray-600 mb-3">
-            Simple, distraction-free flashcards for ADHD-friendly learning
-          </p>
-          
-          {/* Deck Selection */}
-          <div className="mb-3">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Choose a deck:</label>
-            <select
-              value={selectedDeck}
-              onChange={(e) => setSelectedDeck(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="focus">Focus Tips</option>
-              <option value="study">Study Hacks</option>
-              <option value="work">Work Strategies</option>
-            </select>
-          </div>
-          
-          {/* Options */}
-          <div className="space-y-2 mb-3">
-            <label className="flex items-center text-xs">
-              <input
-                type="checkbox"
-                checked={autoAdvance}
-                onChange={(e) => setAutoAdvance(e.target.checked)}
-                className="mr-2"
-              />
-              Auto-advance every 10 seconds
-            </label>
-            <label className="flex items-center text-xs">
-              <input
-                type="checkbox"
-                checked={voiceEnabled}
-                onChange={(e) => setVoiceEnabled(e.target.checked)}
-                className="mr-2"
-              />
-              Read cards aloud
-            </label>
-          </div>
-          
-          <button
-            onClick={launchADHDFlashcards}
-            className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded transition-colors"
-          >
-            🧠 Start Focus Cards
-          </button>
-          
-          <div className="mt-3 p-2 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700">
-            <div className="flex items-start">
-              <span className="mr-2">💡</span>
-              <div>
-                <p className="font-medium mb-1">ADHD-Friendly Features:</p>
-                <ul className="space-y-1">
-                  <li>• One card at a time (no distractions)</li>
-                  <li>• Short, simple tips (under 15 words)</li>
-                  <li>• Keyboard shortcuts (Space/→ to advance)</li>
-                  <li>• Voice reading option</li>
-                  <li>• Auto-advance timer</li>
-                </ul>
+            <div className="text-xs text-gray-600 space-y-1">
+              <div className="flex justify-between">
+                <span>0%: Grayscale</span>
+                <span>100%: Normal</span>
+                <span>200%: Vibrant</span>
               </div>
             </div>
           </div>
@@ -975,28 +424,12 @@ const Popup: React.FC = () => {
             >
               Copy Text
             </button>
-            {currentSummarization?.summary.text && (
-              <button
-                onClick={speakSummary}
-                className="text-purple-500 hover:text-purple-600 text-sm"
-              >
-                🔊 Speak Summary
-              </button>
-            )}
             {currentText && (
               <button
                 onClick={downloadText}
                 className="text-orange-500 hover:text-orange-600 text-sm"
               >
                 📄 Download Text
-              </button>
-            )}
-            {currentSummarization && (
-              <button
-                onClick={downloadBrailleTxt}
-                className="text-pink-500 hover:text-pink-600 text-sm"
-              >
-                ⠿ Export as .txt (Braille)
               </button>
             )}
             {currentSummarization?.summary && currentSummarization?.flashcards && (
@@ -1030,60 +463,7 @@ const Popup: React.FC = () => {
         </div>
       )}
 
-      {storedTexts.length > 0 && (
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-gray-800">Recent Extractions</h3>
-            <button
-              onClick={clearAllTexts}
-              className="text-red-500 hover:text-red-600 text-sm"
-            >
-              Clear All
-            </button>
-          </div>
-          
-          <div className="space-y-2">
-            {storedTexts.map((item) => (
-              <div key={item.id} className="p-3 bg-gray-50 rounded border">
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="font-medium text-gray-800 text-sm truncate">
-                    {item.title}
-                  </h4>
-                  <button
-                    onClick={() => copyToClipboard(item.text)}
-                    className="text-blue-500 hover:text-blue-600 text-xs ml-2"
-                  >
-                    Copy
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mb-1 truncate">
-                  {item.url}
-                </p>
-                <p className="text-xs text-gray-600 mb-2">
-                  {formatDate(item.timestamp)}
-                </p>
-                {item.processed && renderTextStats(item.processed)}
-                {item.summarization && (
-                  <div className="mb-2">
-                    <span className="text-xs text-gray-500">Summary: </span>
-                    <span className="text-xs text-gray-700">{truncateText(item.summarization.summary.text, 60)}</span>
-                    {item.summarization.flashcards.length > 0 && (
-                      <span className={`text-xs ml-2 ${item.summarization.isFallback ? 'text-yellow-600' : 'text-green-600'}`}>
-                        ({item.summarization.flashcards.length} cards{item.summarization.isFallback ? ' - fallback' : ''})
-                      </span>
-                    )}
-                  </div>
-                )}
-                <p className="text-sm text-gray-700">
-                  {truncateText(item.text, 80)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {storedTexts.length === 0 && !currentText && !loading && (
+      {!currentText && !loading && (
         <div className="text-center py-8">
           <div className="mb-4">
             <div className="text-4xl mb-2">📚</div>
@@ -1100,7 +480,7 @@ const Popup: React.FC = () => {
               <p>• 📖 Extract main content from articles</p>
               <p>• 🧠 Generate AI-powered summaries</p>
               <p>• 🎯 Create learning flashcards</p>
-              <p>• 🔊 Listen to summaries with text-to-speech</p>
+              <p>• 🎨 Adjust color saturation for better visibility</p>
             </div>
           </div>
           
@@ -1119,15 +499,6 @@ const Popup: React.FC = () => {
           onClose={() => setShowFlashcards(false)}
         />
       )}
-
-      {/* ADHD Flashcard Overlay */}
-      <FlashcardOverlay
-        flashcards={adhdFlashcardDecks[selectedDeck as keyof typeof adhdFlashcardDecks]}
-        isVisible={showADHDFlashcards}
-        onClose={() => setShowADHDFlashcards(false)}
-        autoAdvance={autoAdvance}
-        voiceEnabled={voiceEnabled}
-      />
     </div>
   );
 };

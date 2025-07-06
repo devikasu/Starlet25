@@ -5,7 +5,6 @@
   "description": "Extract main page text while avoiding navigation elements",
   "permissions": [
     "activeTab",
-    "storage",
     "scripting",
     "tabs"
   ],
@@ -13,11 +12,17 @@
     "<all_urls>"
   ],
   "commands": {
-    "start-voice-assistant": {
+    "extract-text": {
       "suggested_key": {
-        "default": "Alt+Shift+V"
+        "default": "Ctrl+Alt+S"
       },
-      "description": "Start voice assistant for blind users"
+      "description": "Extract and summarize current page"
+    },
+    "rescan-page": {
+      "suggested_key": {
+        "default": "Ctrl+Alt+R"
+      },
+      "description": "Re-scan and re-summarize current page"
     }
   },
   "background": {
