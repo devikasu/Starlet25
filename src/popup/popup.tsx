@@ -38,6 +38,40 @@ const Popup: React.FC = () => {
     loadAccessibilityStatus();
   }, []);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only trigger shortcuts when popup is focused
+      if (event.ctrlKey && event.altKey) {
+        switch (event.key.toLowerCase()) {
+          case 's':
+            event.preventDefault();
+            if (!loading) {
+              extractCurrentPage();
+            }
+            break;
+          case 'r':
+            event.preventDefault();
+            if (!loading) {
+              rescanPage();
+            }
+            break;
+          case 'q':
+            event.preventDefault();
+            if (!loading) {
+              handleVoiceCommand();
+            }
+            break;
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [loading]); // Re-run when loading state changes
+
   const loadAccessibilityStatus = async () => {
     try {
       const result = await chrome.storage.local.get(['accessibilityEnabled']);
@@ -556,6 +590,28 @@ const Popup: React.FC = () => {
             </div>
           </div>
         </div>
+        <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+          <div className="flex items-start">
+            <span className="mr-2">⌨️</span>
+            <div>
+              <p className="font-medium mb-1">Keyboard Shortcuts:</p>
+              <div className="grid grid-cols-1 gap-1">
+                <div className="flex justify-between">
+                  <span>Summarize:</span>
+                  <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+S</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Rescan:</span>
+                  <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+R</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Quick Summarize:</span>
+                  <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+Q</kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <p className="text-sm text-gray-600 mb-3">Extract & Learn</p>
         
         <button
@@ -563,7 +619,7 @@ const Popup: React.FC = () => {
           disabled={loading}
           className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          {loading ? 'Summarizing...' : '📄 Summarize Page'}
+          {loading ? 'Summarizing...' : '📄 Summarize Page (Ctrl+Alt+S)'}
         </button>
 
         <button
@@ -571,7 +627,7 @@ const Popup: React.FC = () => {
           disabled={loading}
           className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          {loading ? 'Re-scanning...' : '🔄 Re-scan Page'}
+          {loading ? 'Re-scanning...' : '🔄 Re-scan Page (Ctrl+Alt+R)'}
         </button>
 
         <button
@@ -579,7 +635,7 @@ const Popup: React.FC = () => {
           disabled={loading}
           className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
         >
-          🚀 Quick Summarize
+          🚀 Quick Summarize (Ctrl+Alt+Q)
         </button>
 
         {/* Voice Assistant Section */}
