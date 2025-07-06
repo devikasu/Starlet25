@@ -1,26 +1,58 @@
-# Starlet25 - Chrome Extension
+# 🌟 Starlet25 - Chrome Extension
 
-A Chrome extension that extracts main page text while avoiding navigation elements, footers, and sidebars, then generates summaries and flashcards for learning.
+A comprehensive Chrome extension for text extraction, summarization, learning, and accessibility features.
 
-## Features
+## ✨ Features
 
-- **Smart Text Extraction**: Automatically identifies and extracts main content from web pages
-- **Navigation Filtering**: Avoids navbars, footers, sidebars, ads, and other non-content elements
-- **Multiple Content Sources**: Prioritizes semantic HTML elements (main, article) with fallback to largest text container
-- **Real-time Updates**: Monitors page changes for Single Page Applications (SPAs)
-- **Text Processing**: Analyzes content with word count, reading time, language detection, and keyword extraction
-- **AI-Powered Summarization**: Generates intelligent summaries with key points and topic identification
-- **Flashcard Generation**: Creates interactive flashcards for learning (definition, concept, fact, process types)
-- **Text Storage**: Stores extracted text with metadata (URL, title, timestamp)
-- **Copy to Clipboard**: Easy copying of extracted text
-- **Export Capabilities**: Save content in TXT, JSON, or Markdown formats
-- **Clean UI**: Modern, responsive popup interface with interactive flashcard viewer
+### 📄 Text Summarization
+- **AI-powered content extraction** from web pages
+- **Smart summarization** with key points and insights
+- **Flashcard generation** for learning and retention
+- **Export functionality** to save summaries as text files
+- **Multiple summarization modes**: Full, Quick, and Rescan
 
-## Installation
+### 🧠 ADHD-Friendly Flashcards
+- **Distraction-free overlay** with dimmed background
+- **One card at a time** display for better focus
+- **Auto-advance timer** with customizable intervals
+- **Voice reading option** for auditory learners
+- **Three card decks**: Basic, Intermediate, Advanced
+- **Keyboard navigation**: Space/Arrow keys to advance, Esc to close
+
+### 🎨 Color Saturation Control
+- **Real-time color adjustment** with smooth slider
+- **0-200% saturation range** for various visual needs
+- **Multiple injection methods** for maximum compatibility
+- **Works on most websites** including complex layouts
+- **Visual feedback** with immediate color changes
+
+### 🎤 Voice Assistant
+- **Full voice control** for all extension features
+- **Speech recognition** for hands-free operation
+- **Text-to-speech output** for accessibility
+- **Voice commands** for summarization, flashcards, and settings
+- **Keyboard activation**: Alt+Shift+V
+
+### ♿ Accessibility Features
+- **Screen reader support** with proper ARIA labels
+- **Keyboard navigation** for all features
+- **High contrast options** and color adjustments
+- **Voice reading** of page content (Alt+N)
+- **ADHD-friendly design** with focus management
+- **Comprehensive error handling** with user feedback
+
+### ⌨️ Keyboard Shortcuts
+- **Ctrl+Alt+S**: Summarize current page
+- **Ctrl+Alt+R**: Rescan and re-summarize page
+- **Ctrl+Alt+Q**: Quick summarize with minimal processing
+- **Alt+Shift+V**: Activate voice assistant
+- **Alt+N**: Read page content aloud
+
+## 🚀 Installation
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/yourusername/Starlet25.git
    cd Starlet25
    ```
 
@@ -36,166 +68,129 @@ A Chrome extension that extracts main page text while avoiding navigation elemen
 
 4. **Load in Chrome**:
    - Open Chrome and go to `chrome://extensions/`
-   - Enable "Developer mode" (toggle in top right)
+   - Enable "Developer mode"
    - Click "Load unpacked"
-   - Select the `dist` folder from the build output
+   - Select the `dist` folder from the project
 
-## Usage
+## 🧪 Testing
 
-1. **Automatic Extraction**: The extension automatically extracts text when you visit a webpage
-2. **Manual Extraction**: Click the extension icon and press "Extract Current Page"
-3. **View Summaries**: See AI-generated summaries with key points and difficulty assessment
-4. **Study Flashcards**: Click "View Flashcards" to study generated learning cards
-5. **View History**: See recently extracted texts with summaries and flashcard counts
-6. **Copy Text**: Click "Copy" on any extracted text to copy it to clipboard
-7. **Clear History**: Use "Clear All" to remove stored texts
+### Comprehensive Test Page
+Open `test-all-features.html` in your browser to test all features:
+- Text summarization with sample content
+- Color saturation control with test sections
+- ADHD flashcard functionality
+- Voice assistant integration
+- Accessibility features
 
-## How It Works
+### Individual Test Pages
+- `test-saturation-fixed.html` - Saturation control testing
+- `test-accessibility.html` - Accessibility features
+- `test-keyboard-shortcut.html` - Keyboard shortcuts
+- `test-voice-assistant.html` - Voice assistant
 
-### Content Script (`src/content/contentScript.ts`)
-- Runs on every webpage
-- Identifies main content using semantic HTML elements
-- Removes navigation, ads, and other non-content elements
-- Sends extracted text to background script
-- Monitors page changes for SPAs
+## 🏗️ Architecture
 
-### Background Script (`src/background/background.ts`)
-- Receives extracted text from content scripts
-- Processes text with analytics (word count, reading time, etc.)
-- Generates summaries and flashcards using offline AI logic
-- Stores text in Chrome's local storage
-- Manages communication between content scripts and popup
+### Core Components
+- **Background Script** (`background.ts`): Handles keyboard shortcuts and message routing
+- **Content Script** (`contentScript.ts`): Interacts with web pages and applies filters
+- **Popup** (`popup.tsx`): Main user interface with all controls
+- **Utils**: Modular utilities for text processing, voice assistance, and file export
 
-### Text Processor (`src/utils/textProcessor.ts`)
-- Analyzes extracted text for statistics
-- Detects language, code blocks, and links
-- Extracts keywords and generates reading time estimates
-- Provides formatting utilities
+### Key Features Implementation
+- **Saturation Control**: Multiple CSS injection methods with fallbacks
+- **Voice Assistant**: Web Speech API integration with error handling
+- **Flashcards**: React-based overlay with accessibility features
+- **Summarization**: AI-powered text analysis with export capabilities
 
-### Summarizer (`src/utils/summarizer.ts`)
-- Generates intelligent summaries from extracted text
-- Identifies topics and assesses content difficulty
-- Creates flashcards of different types:
-  - **Definition cards**: Technical term explanations
-  - **Concept cards**: Conceptual understanding questions
-  - **Fact cards**: Factual information recall
-  - **Process cards**: Step-by-step procedure questions
-- Uses offline logic with technical term recognition
+## 🎯 Usage
 
-### Popup (`src/popup/popup.tsx`)
-- React-based user interface
-- Displays current page text, summaries, and extraction history
-- Provides manual extraction controls
-- Shows flashcard counts and allows launching flashcard viewer
+### Basic Workflow
+1. **Navigate** to any webpage you want to summarize
+2. **Click** the Starlet25 extension icon
+3. **Choose** your desired action:
+   - Summarize page content
+   - Generate flashcards
+   - Adjust color saturation
+   - Activate voice assistant
+4. **Use keyboard shortcuts** for quick access to features
 
-### Flashcard Viewer (`src/components/FlashcardViewer.tsx`)
-- Interactive flashcard study interface
-- Question/answer flip functionality
-- Progress tracking with visual indicators
-- Difficulty and type color coding
-- Navigation between cards
+### ADHD Flashcards
+1. **Select** a card deck (Basic/Intermediate/Advanced)
+2. **Choose** options (auto-advance, voice reading)
+3. **Launch** the focus overlay
+4. **Navigate** with Space/Arrow keys or let auto-advance work
+5. **Press Esc** to close when finished
 
-## Text Extraction Strategy
+### Color Saturation
+1. **Open** the extension popup
+2. **Move** the saturation slider (0-200%)
+3. **Watch** colors change in real-time
+4. **Reset** to 100% for normal colors
 
-1. **Priority Elements**: Looks for semantic HTML elements in order:
-   - `<main>`
-   - `<article>`
-   - `[role="main"]`
-   - `.main-content`, `.content`, `.post-content`, etc.
-
-2. **Fallback**: If no semantic elements found, identifies the largest text container
-
-3. **Filtering**: Removes common non-content elements:
-   - Navigation: `nav`, `.nav`, `.navbar`, `[role="navigation"]`
-   - Headers/Footers: `header`, `footer`, `.header`, `.footer`
-   - Sidebars: `aside`, `.sidebar`
-   - Ads: `.ad`, `.advertisement`, `.ads`
-   - Social: `.social-share`, `.share-buttons`
-   - Comments: `.comments`, `.comment-section`
-   - And many more...
-
-4. **Text Cleaning**: Removes extra whitespace and short navigation lines
-
-## Summarization & Flashcard Features
-
-### Summary Generation
-- **Intelligent Summaries**: Extracts key sentences and generates coherent summaries
-- **Topic Identification**: Automatically detects programming, APIs, databases, frameworks, etc.
-- **Difficulty Assessment**: Rates content as easy, medium, or hard based on complexity
-- **Confidence Scoring**: Provides confidence levels for generated summaries
-- **Key Points Extraction**: Identifies and lists important concepts
-
-### Flashcard Types
-- **Definition Cards**: "What is [technical term]?" with contextual definitions
-- **Concept Cards**: "Explain the concept of [concept]" with detailed explanations
-- **Fact Cards**: "What is [fact]?" for factual information recall
-- **Process Cards**: "What are the steps to [process]?" for procedural learning
-
-### Technical Term Recognition
-Recognizes 50+ technical terms including:
-- Programming concepts: function, class, method, object, array, string
-- Development tools: API, database, framework, library, module
-- Software concepts: authentication, encryption, caching, scaling
-- And many more...
-
-## Development
+## 🔧 Development
 
 ### Project Structure
 ```
 Starlet25/
 ├── src/
-│   ├── content/
-│   │   └── contentScript.ts    # Content script for text extraction
-│   ├── background/
-│   │   └── background.ts       # Background script for processing
-│   ├── popup/
-│   │   └── popup.tsx          # React popup component
-│   ├── components/
-│   │   └── FlashcardViewer.tsx # Interactive flashcard component
-│   ├── utils/
-│   │   ├── textProcessor.ts    # Text analysis and processing
-│   │   ├── summarizer.ts       # Summary and flashcard generation
-│   │   └── fileExport.ts       # Export utilities
-│   ├── main.tsx               # React entry point
-│   └── index.css              # Tailwind CSS
-├── public/
-│   └── icon.png               # Extension icon
-├── manifest.json              # Chrome extension manifest
-├── package.json               # Dependencies and scripts
-├── vite.config.ts            # Vite build configuration
-└── tailwind.config.js        # Tailwind CSS configuration
+│   ├── background/          # Background script
+│   ├── content/            # Content script
+│   ├── popup/              # Popup interface
+│   ├── components/         # React components
+│   └── utils/              # Utility functions
+├── public/                 # Static assets
+├── dist/                   # Built extension
+└── test-*.html            # Test pages
 ```
 
-### Available Scripts
-- `npm run dev` - Start development server
-- `npm run build` - Build extension for production
-- `npm run preview` - Preview built extension
+### Build Commands
+```bash
+npm run build      # Build for production
+npm run dev        # Development mode
+npm run preview    # Preview built extension
+```
 
-### Technologies Used
-- **TypeScript** - Type-safe JavaScript
-- **React** - User interface framework
-- **Tailwind CSS** - Utility-first CSS framework
-- **Vite** - Fast build tool
-- **Chrome Extension APIs** - Browser extension functionality
+### Key Technologies
+- **TypeScript** for type safety
+- **React** for UI components
+- **Vite** for build tooling
+- **Tailwind CSS** for styling
+- **Web Speech API** for voice features
+- **Chrome Extension APIs** for browser integration
 
-## Permissions
+## 🐛 Troubleshooting
 
-- `activeTab` - Access to current tab for text extraction
-- `storage` - Store extracted text locally
+### Common Issues
+1. **Saturation not working**: Try refreshing the page or using a different website
+2. **Voice assistant not responding**: Check microphone permissions
+3. **Keyboard shortcuts not working**: Ensure the popup is focused
+4. **Flashcards not loading**: Check if content script is injected properly
 
-## Browser Compatibility
+### Debug Mode
+- Open Chrome DevTools
+- Check the Console tab for error messages
+- Use the Network tab to monitor API calls
+- Verify extension permissions in `chrome://extensions/`
 
-- Chrome 88+
-- Chromium-based browsers (Edge, Brave, etc.)
+## 📝 License
 
-## Future Enhancements
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-- **GPT API Integration**: Upgrade to OpenAI GPT for more sophisticated summarization
-- **Spaced Repetition**: Implement spaced repetition algorithm for flashcards
-- **Export to Anki**: Direct export to Anki flashcard software
-- **Voice Reading**: Text-to-speech for extracted content
-- **Collaborative Learning**: Share flashcards and summaries with others
+## 🤝 Contributing
 
-## License
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-MIT License
+## 📞 Support
+
+For issues and questions:
+- Create an issue on GitHub
+- Check the troubleshooting section
+- Review the test pages for examples
+
+---
+
+**Starlet25** - Making the web more accessible and learnable, one page at a time! 🌟
