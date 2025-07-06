@@ -6,7 +6,8 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "microphone"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -23,6 +24,12 @@
         "default": "Ctrl+Shift+R"
       },
       "description": "Re-scan and re-summarize current page"
+    },
+    "voice-assistant": {
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
+      "description": "Start voice assistant"
     }
   },
   "background": {

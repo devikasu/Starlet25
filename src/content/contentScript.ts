@@ -150,6 +150,12 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     sendResponse({ text, url: window.location.href, title: document.title });
   }
   
+  if (request.action === 'START_VOICE_ASSISTANT') {
+    console.log('🎤 Starlet25: Received START_VOICE_ASSISTANT command in content script');
+    // Voice assistant functionality will be handled by the popup components
+    sendResponse({ success: true, message: 'Voice assistant ready' });
+  }
+  
   // Handle saturation filter
   if (request.action === 'APPLY_SATURATION_FILTER') {
     console.log('🎨 Starlet25: Received APPLY_SATURATION_FILTER command in content script');

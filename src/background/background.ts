@@ -125,6 +125,27 @@ chrome.commands.onCommand.addListener(async (command) => {
       console.error("❌ Starlet25: Error handling text extraction shortcut", error);
     }
   }
+  
+  if (command === "voice-assistant") {
+    console.log("Starlet25: Alt+Shift+V received in background script");
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        await injectContentScript(tab.id);
+        chrome.tabs.sendMessage(tab.id, {
+          action: "START_VOICE_ASSISTANT"
+        }, (_response) => {
+          if (chrome.runtime.lastError) {
+            console.warn("⚠️ Starlet25: Content script not ready for voice assistant", chrome.runtime.lastError.message);
+          } else {
+            console.log("✅ Starlet25: Voice assistant started successfully");
+          }
+        });
+      }
+    } catch (error) {
+      console.error("❌ Starlet25: Error starting voice assistant", error);
+    }
+  }
 });
 
 // Handle tab updates to inject content script on page changes
