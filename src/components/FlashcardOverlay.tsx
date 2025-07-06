@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ttsManager } from '../utils/ttsManager';
-import { sttManager } from '../utils/sttManager';
 
 interface FlashcardOverlayProps {
   flashcards: string[];
   onClose: () => void;
-  voiceEnabled?: boolean;
   summary?: string;
 }
 
-const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose, voiceEnabled = false, summary }) => {
+const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose, summary }) => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [_isListening, setIsListening] = useState(false); // Used in voice session management
-  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'speaking' | 'listening' | 'error'>('idle');
   const [showSummary, setShowSummary] = useState(false);
   const [isSpeakingSummary, setIsSpeakingSummary] = useState(false);
 
@@ -34,76 +29,13 @@ const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose
   const nextCard = () => {
     if (currentCardIndex < flashcards.length - 1) {
       setCurrentCardIndex(currentCardIndex + 1);
-      if (voiceEnabled) {
-        ttsManager.speakNavigation('next');
-        setTimeout(() => speakCurrentCard(), 1000);
-      }
     }
   };
 
   const prevCard = () => {
     if (currentCardIndex > 0) {
       setCurrentCardIndex(currentCardIndex - 1);
-      if (voiceEnabled) {
-        ttsManager.speakNavigation('previous');
-        setTimeout(() => speakCurrentCard(), 1000);
-      }
     }
-  };
-
-  const speakCurrentCard = () => {
-    if (voiceEnabled && flashcards[currentCardIndex]) {
-      setVoiceStatus('speaking');
-      ttsManager.speak(flashcards[currentCardIndex], true);
-    }
-  };
-
-  const startVoiceSession = async () => {
-    if (!voiceEnabled) return;
-    
-    try {
-      sttManager.setCommandHandler(handleVoiceCommand);
-      sttManager.setErrorHandler(handleVoiceError);
-      
-      const result = sttManager.startListening();
-      if (result.success) {
-        setIsListening(true);
-        setVoiceStatus('listening');
-        ttsManager.speakSuccess('Voice session started. Say next, previous, or repeat.');
-      }
-    } catch (error) {
-      console.error('🎤 Starlet25: Error starting voice session:', error);
-      setVoiceStatus('error');
-    }
-  };
-
-  const stopVoiceSession = () => {
-    sttManager.stopListening();
-    ttsManager.stop();
-    setIsListening(false);
-    setVoiceStatus('idle');
-  };
-
-  const handleVoiceCommand = (command: string) => {
-    switch (command) {
-      case 'next':
-        nextCard();
-        break;
-      case 'previous':
-        prevCard();
-        break;
-      case 'repeat':
-        speakCurrentCard();
-        break;
-      case 'stop':
-        onClose();
-        break;
-    }
-  };
-
-  const handleVoiceError = (error: string) => {
-    setVoiceStatus('error');
-    ttsManager.speakError(error);
   };
 
   // Text-to-speech functionality for summary
@@ -166,19 +98,11 @@ const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose
     };
 
     window.addEventListener('keydown', handleKeyPress);
-    
-    // Start voice session if enabled
-    if (voiceEnabled) {
-      startVoiceSession();
-    }
 
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
-      if (voiceEnabled) {
-        stopVoiceSession();
-      }
     };
-  }, [currentCardIndex, flashcards.length, voiceEnabled]);
+  }, [currentCardIndex, flashcards.length]);
 
   // Cleanup speech synthesis on unmount
   useEffect(() => {
@@ -186,13 +110,6 @@ const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose
       window.speechSynthesis.cancel();
     };
   }, []);
-
-  // Speak current card when it changes
-  useEffect(() => {
-    if (voiceEnabled) {
-      setTimeout(() => speakCurrentCard(), 500);
-    }
-  }, [currentCardIndex, voiceEnabled]);
 
   if (flashcards.length === 0) {
     return (
@@ -224,13 +141,6 @@ const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose
             <p className="text-white text-opacity-80">
               Card {currentCardIndex + 1} of {flashcards.length}
             </p>
-            {voiceEnabled && (
-              <div className="flex items-center mt-2">
-                <span className={`text-sm ${voiceStatus === 'listening' ? 'text-green-300' : voiceStatus === 'speaking' ? 'text-blue-300' : 'text-white text-opacity-60'}`}>
-                  {voiceStatus === 'listening' ? '🎤 Listening' : voiceStatus === 'speaking' ? '🔊 Speaking' : '🔇 Voice Ready'}
-                </span>
-              </div>
-            )}
           </div>
           <button
             onClick={onClose}
@@ -270,9 +180,6 @@ const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose
                 key={index}
                 onClick={() => {
                   setCurrentCardIndex(index);
-                  if (voiceEnabled) {
-                    setTimeout(() => speakCurrentCard(), 500);
-                  }
                 }}
                 className={`w-3 h-3 rounded-full transition-all duration-200 ${
                   index === currentCardIndex 
@@ -346,7 +253,6 @@ const FlashcardOverlay: React.FC<FlashcardOverlayProps> = ({ flashcards, onClose
         <div className="text-center mt-4 flex-shrink-0">
           <p className="text-white text-opacity-60 text-sm">
             Use ← → arrows or spacebar to navigate • Esc to close
-            {voiceEnabled && ' • Say "next", "previous", "repeat", or "stop"'}
           </p>
         </div>
       </div>

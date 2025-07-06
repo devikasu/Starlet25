@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
 import { SummarizationResult, generateFlashcardsFromSummary } from '../utils/summarizer';
 import FlashcardOverlay from '../components/FlashcardOverlay';
-import VoiceFlashcardViewer from '../components/VoiceFlashcardViewer';
-import { ttsManager } from '../utils/ttsManager';
-import { sttManager } from '../utils/sttManager';
 
 const Popup: React.FC = () => {
   const [currentText, setCurrentText] = useState<string>('');
@@ -13,10 +10,7 @@ const Popup: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
-  const [showVoiceFlashcards, setShowVoiceFlashcards] = useState<boolean>(false);
   const [saturation, setSaturation] = useState<number>(100);
-  const [voiceEnabled] = useState<boolean>(false);
-  const [voiceSupported, setVoiceSupported] = useState<boolean>(false);
 
   const startStudying = async () => {
     setLoading(true);
@@ -120,57 +114,6 @@ const Popup: React.FC = () => {
     applySaturationFilter(100);
   };
 
-  // Check voice support on component mount
-  useEffect(() => {
-    const checkVoiceSupport = () => {
-      const ttsSupported = ttsManager.isSupported();
-      const sttSupported = sttManager.isSupported();
-      setVoiceSupported(ttsSupported && sttSupported);
-      
-      if (ttsSupported && sttSupported) {
-        console.log('🎤 Starlet25: Voice features supported');
-      } else {
-        console.log('🎤 Starlet25: Voice features not fully supported');
-      }
-    };
-
-    checkVoiceSupport();
-  }, []);
-
-  const startVoiceStudying = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(response);
-          }
-        });
-      });
-      
-      if ((response as any).success) {
-        setCurrentText((response as any).text);
-        if ((response as any).processed) {
-          setCurrentProcessed((response as any).processed);
-        }
-        if ((response as any).summarization) {
-          setCurrentSummarization((response as any).summarization);
-          setShowVoiceFlashcards(true);
-        }
-      } else {
-        setError((response as any).error || 'Failed to extract text');
-      }
-    } catch (err) {
-      setError('Error extracting text from current page');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const renderTextStats = (processed: ProcessedText) => (
     <div className="text-xs text-gray-600 space-y-1 mb-2">
       <div className="flex justify-between">
@@ -214,16 +157,6 @@ const Popup: React.FC = () => {
         >
           {loading ? '🧠 Processing...' : '🎯 Start Studying'}
         </button>
-
-        {voiceSupported && (
-          <button
-            onClick={startVoiceStudying}
-            disabled={loading}
-            className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg mb-3 transition-colors text-lg"
-          >
-            {loading ? '🎤 Processing...' : '🎤 Start Voice Study'}
-          </button>
-        )}
 
         {/* Saturation Control Section */}
         <div className="border-t border-gray-200 pt-4 mb-4">
@@ -349,16 +282,7 @@ const Popup: React.FC = () => {
         <FlashcardOverlay
           flashcards={generateFlashcardsFromSummary(currentSummarization.summary)}
           onClose={() => setShowFlashcards(false)}
-          voiceEnabled={voiceEnabled}
           summary={currentSummarization.summary.text}
-        />
-      )}
-
-      {showVoiceFlashcards && currentSummarization && (
-        <VoiceFlashcardViewer
-          flashcards={currentSummarization.flashcards}
-          onClose={() => setShowVoiceFlashcards(false)}
-          autoStartVoice={true}
         />
       )}
     </div>
