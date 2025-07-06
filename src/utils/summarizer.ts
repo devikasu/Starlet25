@@ -440,56 +440,58 @@ function generateDefinitionAnswer(term: string, context: string): string {
   return fallbackDefinitions[term.toLowerCase()] || `${term} is a technical concept used in software development.`;
 }
 
-function extractConceptFromSentence(sentence: string): string | null {
-  // Look for concepts in the sentence
-  const conceptPatterns = [
-    /the concept of (\w+)/i,
-    /(\w+) is a/i,
-    /(\w+) refers to/i,
-    /(\w+) means/i
-  ];
-  
-  for (const pattern of conceptPatterns) {
-    const match = sentence.match(pattern);
-    if (match) return match[1];
-  }
-  
-  return null;
-}
+// These functions are no longer used after the flashcard redesign
+// but kept for potential future use
+// function extractConceptFromSentence(sentence: string): string | null {
+//   // Look for concepts in the sentence
+//   const conceptPatterns = [
+//     /the concept of (\w+)/i,
+//     /(\w+) is a/i,
+//     /(\w+) refers to/i,
+//     /(\w+) means/i
+//   ];
+//   
+//   for (const pattern of conceptPatterns) {
+//     const match = sentence.match(pattern);
+//     if (match) return match[1];
+//   }
+//   
+//   return null;
+// }
 
-function extractFactFromSentence(sentence: string): string | null {
-  // Look for facts in the sentence
-  const factPatterns = [
-    /(\w+) is (\w+)/i,
-    /(\w+) are (\w+)/i,
-    /(\w+) was (\w+)/i,
-    /(\w+) were (\w+)/i
-  ];
-  
-  for (const pattern of factPatterns) {
-    const match = sentence.match(pattern);
-    if (match) return match[1];
-  }
-  
-  return null;
-}
+// function extractFactFromSentence(sentence: string): string | null {
+//   // Look for facts in the sentence
+//   const factPatterns = [
+//     /(\w+) is (\w+)/i,
+//     /(\w+) are (\w+)/i,
+//     /(\w+) was (\w+)/i,
+//     /(\w+) were (\w+)/i
+//   ];
+//   
+//   for (const pattern of factPatterns) {
+//     const match = sentence.match(pattern);
+//     if (match) return match[1];
+//   }
+//   
+//   return null;
+// }
 
-function extractProcessFromSentence(sentence: string): string | null {
-  // Look for processes in the sentence
-  const processPatterns = [
-    /the (\w+) process/i,
-    /(\w+) procedure/i,
-    /(\w+) method/i,
-    /steps to (\w+)/i
-  ];
-  
-  for (const pattern of processPatterns) {
-    const match = sentence.match(pattern);
-    if (match) return match[1];
-  }
-  
-  return null;
-}
+// function extractProcessFromSentence(sentence: string): string | null {
+//   // Look for processes in the sentence
+//   const processPatterns = [
+//     /the (\w+) process/i,
+//     /(\w+) procedure/i,
+//     /(\w+) method/i,
+//     /steps to (\w+)/i
+//   ];
+//   
+//   for (const pattern of processPatterns) {
+//     const match = sentence.match(pattern);
+//     if (match) return match[1];
+//   }
+//   
+//   return null;
+// }
 
 export function formatSummary(summary: Summary): string {
   return `Summary: ${summary.text}\n\nKey Points:\n${summary.keyPoints.map(point => `• ${point}`).join('\n')}\n\nTopics: ${summary.topics.join(', ')}\nDifficulty: ${summary.difficulty}\nConfidence: ${Math.round(summary.confidence * 100)}%`;

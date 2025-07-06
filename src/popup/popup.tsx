@@ -4,6 +4,7 @@ import { SummarizationResult, Summary } from '../utils/summarizer';
 import { downloadAsTxt } from '../utils/fileExport';
 import { listenForCommand } from '../utils/voiceCommand';
 import FlashcardViewer from '../components/FlashcardViewer';
+import FlashcardOverlay from '../components/FlashcardOverlay';
 
 interface StoredText {
   id: string;
@@ -27,6 +28,10 @@ const Popup: React.FC = () => {
   const [accessibilityLoading, setAccessibilityLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'summary' | 'flashcards'>('summary');
   const [saturation, setSaturation] = useState<number>(100);
+  const [showADHDFlashcards, setShowADHDFlashcards] = useState<boolean>(false);
+  const [selectedDeck, setSelectedDeck] = useState<string>('focus');
+  const [autoAdvance, setAutoAdvance] = useState<boolean>(false);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     loadStoredTexts();
@@ -365,6 +370,44 @@ const Popup: React.FC = () => {
     applySaturationFilter(100);
   };
 
+  // ADHD-friendly flashcard decks
+  const adhdFlashcardDecks = {
+    focus: [
+      "Start with easy tasks to build momentum",
+      "Take one small step at a time",
+      "Use timers to stay on track",
+      "Break big tasks into tiny pieces",
+      "Celebrate every small win",
+      "Remove distractions from your space",
+      "Set clear, simple goals",
+      "Take short breaks when needed"
+    ],
+    study: [
+      "Read one paragraph at a time",
+      "Write down key points as you go",
+      "Use highlighters for important info",
+      "Take breaks every 25 minutes",
+      "Review what you learned",
+      "Ask questions about the material",
+      "Connect new info to what you know",
+      "Practice explaining it to someone"
+    ],
+    work: [
+      "Make a simple to-do list",
+      "Pick your most important task",
+      "Set a timer for focused work",
+      "Put your phone in another room",
+      "Use noise-canceling headphones",
+      "Take a walk when you're stuck",
+      "Ask for help when needed",
+      "Remember: progress over perfection"
+    ]
+  };
+
+  const launchADHDFlashcards = () => {
+    setShowADHDFlashcards(true);
+  };
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
@@ -656,6 +699,80 @@ const Popup: React.FC = () => {
           </div>
         </div>
 
+        {/* ADHD-Friendly Flashcards Section */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-800">ADHD Focus Cards</h3>
+            <div className="text-xs text-indigo-600 bg-indigo-100 px-2 py-1 rounded">
+              <span className="mr-1">🧠</span>
+              Focus Mode
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-600 mb-3">
+            Simple, distraction-free flashcards for ADHD-friendly learning
+          </p>
+          
+          {/* Deck Selection */}
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Choose a deck:</label>
+            <select
+              value={selectedDeck}
+              onChange={(e) => setSelectedDeck(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="focus">Focus Tips</option>
+              <option value="study">Study Hacks</option>
+              <option value="work">Work Strategies</option>
+            </select>
+          </div>
+          
+          {/* Options */}
+          <div className="space-y-2 mb-3">
+            <label className="flex items-center text-xs">
+              <input
+                type="checkbox"
+                checked={autoAdvance}
+                onChange={(e) => setAutoAdvance(e.target.checked)}
+                className="mr-2"
+              />
+              Auto-advance every 10 seconds
+            </label>
+            <label className="flex items-center text-xs">
+              <input
+                type="checkbox"
+                checked={voiceEnabled}
+                onChange={(e) => setVoiceEnabled(e.target.checked)}
+                className="mr-2"
+              />
+              Read cards aloud
+            </label>
+          </div>
+          
+          <button
+            onClick={launchADHDFlashcards}
+            className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded transition-colors"
+          >
+            🧠 Start Focus Cards
+          </button>
+          
+          <div className="mt-3 p-2 bg-indigo-50 border border-indigo-200 rounded text-xs text-indigo-700">
+            <div className="flex items-start">
+              <span className="mr-2">💡</span>
+              <div>
+                <p className="font-medium mb-1">ADHD-Friendly Features:</p>
+                <ul className="space-y-1">
+                  <li>• One card at a time (no distractions)</li>
+                  <li>• Short, simple tips (under 15 words)</li>
+                  <li>• Keyboard shortcuts (Space/→ to advance)</li>
+                  <li>• Voice reading option</li>
+                  <li>• Auto-advance timer</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {loading && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
             <div className="flex items-center">
@@ -897,6 +1014,15 @@ const Popup: React.FC = () => {
           onClose={() => setShowFlashcards(false)}
         />
       )}
+
+      {/* ADHD Flashcard Overlay */}
+      <FlashcardOverlay
+        flashcards={adhdFlashcardDecks[selectedDeck as keyof typeof adhdFlashcardDecks]}
+        isVisible={showADHDFlashcards}
+        onClose={() => setShowADHDFlashcards(false)}
+        autoAdvance={autoAdvance}
+        voiceEnabled={voiceEnabled}
+      />
     </div>
   );
 };
