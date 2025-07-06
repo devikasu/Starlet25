@@ -95,16 +95,16 @@ class VoiceFlashcardSystem {
     const summary = this.generateSummary(content);
     flashcards.push({
       id: 'summary-1',
-      question: 'What is the main topic of this page?',
-      answer: summary,
+      question: 'What is the main topic?',
+      answer: this.extractOneWordAnswer(summary),
       summary: summary,
       type: 'summary',
       difficulty: 'easy',
       keywords: this.extractKeywords(content)
     });
 
-    // Generate interactive question flashcards
-    const questions = this.generateQuestions(content);
+    // Generate interactive question flashcards with short questions and one-word answers
+    const questions = this.generateShortQuestions(content);
     questions.forEach((q, index) => {
       flashcards.push({
         id: `question-${index + 1}`,
@@ -126,7 +126,17 @@ class VoiceFlashcardSystem {
     return summarySentences.join('. ').trim() + '.';
   }
 
-  private generateQuestions(content: string): Array<{
+  private extractOneWordAnswer(text: string): string {
+    const words = text.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .split(/\s+/)
+      .filter(word => word.length > 3)
+      .filter(word => !['this', 'that', 'with', 'have', 'will', 'from', 'they', 'know', 'want', 'been', 'good', 'much', 'some', 'time', 'very', 'when', 'come', 'just', 'into', 'than', 'more', 'other', 'about', 'many', 'then', 'them', 'these', 'people', 'only', 'well', 'also', 'over', 'still', 'take', 'every', 'think', 'here', 'again', 'another', 'around', 'because', 'before', 'should', 'through', 'during', 'first', 'going', 'great', 'might', 'never', 'often', 'place', 'right', 'small', 'sound', 'their', 'there', 'those', 'under', 'until', 'water', 'where', 'which', 'while', 'world', 'years'].includes(word));
+    
+    return words[0] || 'topic';
+  }
+
+  private generateShortQuestions(content: string): Array<{
     question: string;
     answer: string;
     summary: string;
@@ -140,37 +150,39 @@ class VoiceFlashcardSystem {
       difficulty: 'easy' | 'medium' | 'hard';
       keywords: string[];
     }> = [];
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 30);
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20);
     
-    // Generate different types of questions
-    const questionTypes = [
-      {
-        pattern: /\b(what is|what are|define|explain)\b/i,
-        template: 'What is {topic}?',
-        difficulty: 'easy' as const
-      },
-      {
-        pattern: /\b(how does|how do|describe|explain)\b/i,
-        template: 'How does {topic} work?',
-        difficulty: 'medium' as const
-      },
-      {
-        pattern: /\b(why|because|reason|cause)\b/i,
-        template: 'Why is {topic} important?',
-        difficulty: 'hard' as const
-      }
+    // Generate short questions with one-word answers
+    const questionTemplates = [
+      { template: 'What is {word}?', difficulty: 'easy' as const },
+      { template: 'Name a {category}.', difficulty: 'easy' as const },
+      { template: 'What does {word} mean?', difficulty: 'medium' as const },
+      { template: 'Give one example of {category}.', difficulty: 'medium' as const },
+      { template: 'What is the main {concept}?', difficulty: 'hard' as const }
     ];
 
-    sentences.slice(0, 6).forEach((sentence, index) => {
-      const questionType = questionTypes[index % questionTypes.length];
+    sentences.slice(0, 8).forEach((sentence, index) => {
       const keywords = this.extractKeywords(sentence);
-      const topic = keywords[0] || 'this topic';
+      if (keywords.length === 0) return;
+      
+      const template = questionTemplates[index % questionTemplates.length];
+      const word = keywords[0];
+      const category = keywords[1] || 'concept';
+      const concept = keywords[2] || 'idea';
+      
+      let question = template.template
+        .replace('{word}', word)
+        .replace('{category}', category)
+        .replace('{concept}', concept);
+      
+      // Extract one-word answer from the sentence
+      const answer = this.extractOneWordAnswer(sentence);
       
       questions.push({
-        question: questionType.template.replace('{topic}', topic),
-        answer: sentence.trim(),
+        question: question,
+        answer: answer,
         summary: sentence.trim(),
-        difficulty: questionType.difficulty,
+        difficulty: template.difficulty,
         keywords: keywords.slice(0, 3)
       });
     });
@@ -211,7 +223,10 @@ class VoiceFlashcardSystem {
       };
 
       this.updateState();
-      this.speak('Voice flashcard session started. I will read each flashcard and ask you questions. Say "next" to continue or "repeat" to hear again.');
+      this.speak('Voice flashcard session started. I will ask you questions and listen for your answers. Get ready!');
+      
+      // Start the first question automatically
+      setTimeout(() => this.askCurrentQuestion(), 2000);
       
       return {
         success: true,
@@ -258,10 +273,10 @@ class VoiceFlashcardSystem {
     const commands = {
       'next': () => this.nextFlashcard(),
       'previous': () => this.previousFlashcard(),
-      'repeat': () => this.readCurrentFlashcard(),
+      'repeat': () => this.askCurrentQuestion(),
       'stop': () => this.endSession(),
       'help': () => this.speakHelp(),
-      'answer': () => this.startAnswerMode()
+      'answer': () => this.askCurrentQuestion()
     };
 
     // Check for navigation commands
@@ -282,10 +297,11 @@ class VoiceFlashcardSystem {
     if (this.session.currentIndex < this.session.flashcards.length - 1) {
       this.session.currentIndex++;
       this.updateState();
-      this.speak('Moving to next flashcard');
-      setTimeout(() => this.readCurrentFlashcard(), 1000);
+      this.speak('Moving to next question');
+      setTimeout(() => this.askCurrentQuestion(), 1000);
     } else {
-      this.speak('This is the last flashcard. Say "previous" to go back or "stop" to end session.');
+      this.speak('This is the last question. Session complete!');
+      this.endSession();
     }
   }
 
@@ -295,22 +311,29 @@ class VoiceFlashcardSystem {
     if (this.session.currentIndex > 0) {
       this.session.currentIndex--;
       this.updateState();
-      this.speak('Moving to previous flashcard');
-      setTimeout(() => this.readCurrentFlashcard(), 1000);
+      this.speak('Moving to previous question');
+      setTimeout(() => this.askCurrentQuestion(), 1000);
     } else {
-      this.speak('This is the first flashcard. Say "next" to continue.');
+      this.speak('This is the first question. Say "next" to continue.');
     }
   }
 
-  public startAnswerMode(): void {
+  public askCurrentQuestion(): void {
     if (!this.session) return;
 
     const currentCard = this.session.flashcards[this.session.currentIndex];
-    this.speak(`Please answer the question: ${currentCard.question}`);
+    this.speak(`Question: ${currentCard.question}. Please answer with one word.`);
     
-    if (this.recognition) {
-      this.recognition.start();
-    }
+    // Start listening for answer after a short delay
+    setTimeout(() => {
+      if (this.recognition) {
+        this.recognition.start();
+      }
+    }, 1000);
+  }
+
+  public startAnswerMode(): void {
+    this.askCurrentQuestion();
   }
 
   private processAnswer(userAnswer: string): void {
@@ -319,35 +342,77 @@ class VoiceFlashcardSystem {
     const currentCard = this.session.flashcards[this.session.currentIndex];
     this.session.userAnswers.set(currentCard.id, userAnswer);
 
-    // Simple answer validation (keyword matching)
-    const isCorrect = this.validateAnswer(userAnswer, currentCard.answer);
+    // Extract the first word as the answer
+    const cleanAnswer = userAnswer.toLowerCase().trim().split(/\s+/)[0];
+    
+    // Simple answer validation for one-word answers
+    const isCorrect = this.validateOneWordAnswer(cleanAnswer, currentCard.answer);
     
     if (isCorrect) {
-      this.speak('Correct! Well done.');
+      this.speak('Correct! Moving to next question.');
+      setTimeout(() => this.nextFlashcard(), 1500);
     } else {
-      this.speak(`Good try. The answer was: ${currentCard.answer}`);
+      this.speak(`Incorrect. The answer was: ${currentCard.answer}. Moving to next question.`);
+      setTimeout(() => this.nextFlashcard(), 2000);
     }
 
     if (this.onAnswerReceived) {
-      this.onAnswerReceived(currentCard.id, userAnswer, isCorrect);
+      this.onAnswerReceived(currentCard.id, cleanAnswer, isCorrect);
     }
   }
 
-  private validateAnswer(userAnswer: string, correctAnswer: string): boolean {
-    const userKeywords = this.extractKeywords(userAnswer);
-    const correctKeywords = this.extractKeywords(correctAnswer);
+  private validateOneWordAnswer(userAnswer: string, correctAnswer: string): boolean {
+    // Clean and normalize both answers
+    const cleanUserAnswer = userAnswer.toLowerCase().trim();
+    const cleanCorrectAnswer = correctAnswer.toLowerCase().trim();
     
-    const matchingKeywords = userKeywords.filter(keyword => 
-      correctKeywords.some(correct => 
-        correct.includes(keyword) || keyword.includes(correct)
-      )
-    );
+    // Direct match
+    if (cleanUserAnswer === cleanCorrectAnswer) {
+      return true;
+    }
     
-    return matchingKeywords.length >= Math.min(2, correctKeywords.length / 2);
+    // Check if user answer is contained in correct answer or vice versa
+    if (cleanCorrectAnswer.includes(cleanUserAnswer) || cleanUserAnswer.includes(cleanCorrectAnswer)) {
+      return true;
+    }
+    
+    // Check for similar words (simple fuzzy matching)
+    const userWords = cleanUserAnswer.split(/\s+/);
+    const correctWords = cleanCorrectAnswer.split(/\s+/);
+    
+    for (const userWord of userWords) {
+      for (const correctWord of correctWords) {
+        if (userWord.length > 2 && correctWord.length > 2) {
+          // Check if words are similar (simple edit distance)
+          if (this.areWordsSimilar(userWord, correctWord)) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  private areWordsSimilar(word1: string, word2: string): boolean {
+    // Simple similarity check - if words share most characters
+    const longer = word1.length > word2.length ? word1 : word2;
+    const shorter = word1.length > word2.length ? word2 : word1;
+    
+    if (longer.includes(shorter) || shorter.includes(longer)) {
+      return true;
+    }
+    
+    // Check for common prefixes/suffixes
+    if (longer.startsWith(shorter) || longer.endsWith(shorter)) {
+      return true;
+    }
+    
+    return false;
   }
 
   private speakHelp(): void {
-    const helpText = 'Available commands: next, previous, repeat, stop, help, answer. Say "answer" to respond to the current question.';
+    const helpText = 'Available commands: next, previous, repeat, stop, help. I will automatically ask questions and listen for your answers.';
     this.speak(helpText);
   }
 
