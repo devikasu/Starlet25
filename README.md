@@ -143,12 +143,7 @@ Starlet25/
 └── test-*.html            # Test pages
 ```
 
-### Build Commands
-```bash
-npm run build      # Build for production
-npm run dev        # Development mode
-npm run preview    # Preview built extension
-```
+
 
 ### Key Technologies
 - **TypeScript** for type safety
@@ -158,39 +153,10 @@ npm run preview    # Preview built extension
 - **Web Speech API** for voice features
 - **Chrome Extension APIs** for browser integration
 
-## 🐛 Troubleshooting
 
-### Common Issues
-1. **Saturation not working**: Try refreshing the page or using a different website
-2. **Voice assistant not responding**: Check microphone permissions
-3. **Keyboard shortcuts not working**: Ensure the popup is focused
-4. **Flashcards not loading**: Check if content script is injected properly
 
-### Debug Mode
-- Open Chrome DevTools
-- Check the Console tab for error messages
-- Use the Network tab to monitor API calls
-- Verify extension permissions in `chrome://extensions/`
 
-## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📞 Support
-
-For issues and questions:
-- Create an issue on GitHub
-- Check the troubleshooting section
-- Review the test pages for examples
-
----
 
 **Starlet25** - Making the web more accessible and learnable, one page at a time! 🌟
