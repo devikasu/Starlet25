@@ -14,13 +14,13 @@
   "commands": {
     "extract-text": {
       "suggested_key": {
-        "default": "Ctrl+Alt+S"
+        "default": "Ctrl+Shift+S"
       },
       "description": "Extract and summarize current page"
     },
     "rescan-page": {
       "suggested_key": {
-        "default": "Ctrl+Alt+R"
+        "default": "Ctrl+Shift+R"
       },
       "description": "Re-scan and re-summarize current page"
     }
