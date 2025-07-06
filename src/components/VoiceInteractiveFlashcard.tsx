@@ -139,10 +139,10 @@ const VoiceInteractiveFlashcard: React.FC<VoiceInteractiveFlashcardProps> = ({
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl shadow-xl w-[90%] max-w-4xl h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+      <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl shadow-lg w-[90%] max-w-3xl h-[80vh] flex flex-col justify-center items-center px-6 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center p-6 flex-shrink-0">
+        <div className="flex justify-between items-center w-full mb-6">
           <div className="text-white">
             <h2 className="text-2xl font-bold">🎤 Voice Study Session</h2>
             <p className="text-white text-opacity-80">
@@ -166,20 +166,15 @@ const VoiceInteractiveFlashcard: React.FC<VoiceInteractiveFlashcardProps> = ({
           </button>
         </div>
 
-        {/* Card Content */}
-        <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
-          <div className="bg-white bg-opacity-95 rounded-xl p-8 shadow-lg w-full max-w-3xl">
-            <div className="text-center">
-              <div className="text-4xl mb-6">🎤</div>
-              <p className="text-2xl font-semibold text-gray-800 leading-relaxed">
-                {flashcards[currentIndex]}
-              </p>
-            </div>
-          </div>
+        {/* Card Content - Big, Centered, Scroll-free */}
+        <div className="flex-1 flex flex-col justify-center items-center w-full">
+          <p className="text-2xl font-semibold text-center leading-relaxed text-white">
+            {flashcards[currentIndex]}
+          </p>
         </div>
 
         {/* Voice Commands Help */}
-        <div className="px-6 pb-4 flex-shrink-0">
+        <div className="w-full mt-6">
           <div className="bg-white bg-opacity-20 rounded-lg p-4">
             <h3 className="text-white font-semibold mb-2">Voice Commands:</h3>
             <div className="text-white text-sm space-y-1">
@@ -193,7 +188,7 @@ const VoiceInteractiveFlashcard: React.FC<VoiceInteractiveFlashcardProps> = ({
         </div>
 
         {/* Keyboard shortcuts hint */}
-        <div className="text-center pb-4 flex-shrink-0">
+        <div className="text-center mt-4">
           <p className="text-white text-opacity-60 text-sm">
             Use ← → arrows or spacebar to navigate • Esc to close • Say commands to control with voice
           </p>
