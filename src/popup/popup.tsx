@@ -350,6 +350,7 @@ const Popup: React.FC = () => {
           flashcards={generateFlashcardsFromSummary(currentSummarization.summary)}
           onClose={() => setShowFlashcards(false)}
           voiceEnabled={voiceEnabled}
+          summary={currentSummarization.summary.text}
         />
       )}
 
