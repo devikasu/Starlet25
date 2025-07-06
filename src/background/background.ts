@@ -306,9 +306,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // Small delay to ensure content script has loaded
     setTimeout(async () => {
       try {
-        // Check if accessibility is enabled
+        // Check if accessibility is enabled - default to true
         const result = await chrome.storage.local.get(['accessibilityEnabled']);
-        const accessibilityEnabled = result.accessibilityEnabled === true;
+        const accessibilityEnabled = result.accessibilityEnabled !== false; // Only false if explicitly set to false
         
         // Always inject content script first to ensure it's available
         await injectContentScript(tabId);

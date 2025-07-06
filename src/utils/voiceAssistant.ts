@@ -389,7 +389,8 @@ class VoiceAssistant {
   private async handleToggleAccessibility(): Promise<void> {
     try {
       const result = await chrome.storage.local.get(['accessibilityEnabled']);
-      const currentState = result.accessibilityEnabled === true;
+      // Default to true if not explicitly set to false
+      const currentState = result.accessibilityEnabled !== false;
       const newState = !currentState;
       
       await chrome.storage.local.set({ accessibilityEnabled: newState });

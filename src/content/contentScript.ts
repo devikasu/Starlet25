@@ -18,15 +18,16 @@ interface ExtractedText {
   timestamp: number;
 }
 
-// Accessibility state
-let accessibilityEnabled = false;
+// Accessibility state - default to enabled
+let accessibilityEnabled = true;
 let keydownListener: ((event: KeyboardEvent) => void) | null = null;
 
 // Check accessibility status on load
 async function checkAccessibilityStatus() {
   try {
     const result = await chrome.storage.local.get(['accessibilityEnabled']);
-    accessibilityEnabled = result.accessibilityEnabled === true;
+    // Default to true if not explicitly set to false
+    accessibilityEnabled = result.accessibilityEnabled !== false;
     
     console.log('Starlet25: Checking accessibility status:', accessibilityEnabled);
     
@@ -42,6 +43,11 @@ async function checkAccessibilityStatus() {
     console.log('Starlet25: Current state - accessibilityEnabled:', accessibilityEnabled, 'keydownListener:', !!keydownListener);
   } catch (error) {
     console.error('Starlet25: Error checking accessibility status:', error);
+    // Keep accessibility enabled even if there's an error
+    accessibilityEnabled = true;
+    if (!keydownListener) {
+      attachAccessibilityListener();
+    }
   }
 }
 
@@ -442,7 +448,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 // Listen for storage changes
 chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.accessibilityEnabled) {
-    accessibilityEnabled = changes.accessibilityEnabled.newValue === true;
+    // Default to true if not explicitly set to false
+    accessibilityEnabled = changes.accessibilityEnabled.newValue !== false;
     
     console.log('Starlet25: Storage changed - accessibilityEnabled:', accessibilityEnabled);
     

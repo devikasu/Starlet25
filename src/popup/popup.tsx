@@ -24,7 +24,7 @@ const Popup: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
-  const [accessibilityEnabled, setAccessibilityEnabled] = useState<boolean>(false);
+  const [accessibilityEnabled, setAccessibilityEnabled] = useState<boolean>(true);
   const [accessibilityLoading, setAccessibilityLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'summary' | 'flashcards'>('summary');
   const [saturation, setSaturation] = useState<number>(100);
@@ -62,6 +62,12 @@ const Popup: React.FC = () => {
               handleVoiceCommand();
             }
             break;
+          case 't':
+            event.preventDefault();
+            if (currentSummarization?.summary.text) {
+              speakSummary();
+            }
+            break;
         }
       }
     };
@@ -70,14 +76,23 @@ const Popup: React.FC = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [loading]); // Re-run when loading state changes
+  }, [loading, currentSummarization]); // Re-run when loading state or summarization changes
 
   const loadAccessibilityStatus = async () => {
     try {
       const result = await chrome.storage.local.get(['accessibilityEnabled']);
-      setAccessibilityEnabled(result.accessibilityEnabled === true);
+      // Default to true if not set, ensuring accessibility is always on
+      const isEnabled = result.accessibilityEnabled !== false; // Only false if explicitly set to false
+      setAccessibilityEnabled(isEnabled);
+      
+      // If accessibility is not explicitly disabled, ensure it's enabled in storage
+      if (isEnabled && result.accessibilityEnabled !== true) {
+        await chrome.storage.local.set({ accessibilityEnabled: true });
+      }
     } catch (err) {
       console.error('Error loading accessibility status:', err);
+      // Keep accessibility enabled even if there's an error
+      setAccessibilityEnabled(true);
     }
   };
 
@@ -558,6 +573,10 @@ const Popup: React.FC = () => {
                 <div className="flex justify-between">
                   <span>Quick Summarize:</span>
                   <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+Q</kbd>
+                </div>
+                <div className="flex justify-between">
+                  <span>Speak Summary:</span>
+                  <kbd className="bg-white px-1 rounded text-xs border">Ctrl+Alt+T</kbd>
                 </div>
               </div>
             </div>
