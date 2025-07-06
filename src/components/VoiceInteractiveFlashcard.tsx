@@ -20,6 +20,7 @@ const VoiceInteractiveFlashcard: React.FC<VoiceInteractiveFlashcardProps> = ({
   const [isAnswering, setIsAnswering] = useState(false);
   const [lastFeedback, setLastFeedback] = useState<{ correct: boolean; message: string } | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [waitingForArrowRight, setWaitingForArrowRight] = useState(false);
   const sessionRef = useRef<VoiceSession | null>(null);
 
   useEffect(() => {
@@ -28,15 +29,18 @@ const VoiceInteractiveFlashcard: React.FC<VoiceInteractiveFlashcardProps> = ({
       setSession(newSession);
       sessionRef.current = newSession;
       setIsListening(!!newSession?.isListening);
+      // Reset waiting state when moving to a new question
+      setWaitingForArrowRight(false);
     });
 
     // Set up answer received handler
     voiceFlashcardSystem.setAnswerReceivedHandler((_questionId, userAnswer, isCorrect) => {
       setUserAnswer(userAnswer);
       setIsAnswering(false);
+      setWaitingForArrowRight(!isCorrect);
       setLastFeedback({
         correct: isCorrect,
-        message: isCorrect ? 'Correct! Well done.' : 'Good try. Check the answer above.'
+        message: isCorrect ? 'Correct! Moving to the next question.' : `Wrong. The correct answer is ${getCurrentCard()?.answer}. Press → to continue.`
       });
     });
 
@@ -57,6 +61,21 @@ const VoiceInteractiveFlashcard: React.FC<VoiceInteractiveFlashcardProps> = ({
       voiceFlashcardSystem.stop();
     };
   }, []);
+
+  // Handle ArrowRight key press for continuing after wrong answers
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight' && waitingForArrowRight) {
+        setWaitingForArrowRight(false);
+        voiceFlashcardSystem.nextFlashcard();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [waitingForArrowRight]);
 
   const startSession = async () => {
     setIsStarting(true);
@@ -311,6 +330,14 @@ const VoiceInteractiveFlashcard: React.FC<VoiceInteractiveFlashcardProps> = ({
                         <p className="text-sm text-gray-600 mt-1">
                           Your answer: "{userAnswer}"
                         </p>
+                      )}
+                      {waitingForArrowRight && (
+                        <div className="mt-2 flex items-center">
+                          <div className="animate-pulse w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                          <span className="text-blue-700 text-sm font-medium">
+                            Waiting for → key to continue...
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>

@@ -349,16 +349,28 @@ class VoiceFlashcardSystem {
     const isCorrect = this.validateOneWordAnswer(cleanAnswer, currentCard.answer);
     
     if (isCorrect) {
-      this.speak('Correct! Moving to next question.');
-      setTimeout(() => this.nextFlashcard(), 1500);
-    } else {
-      this.speak(`Incorrect. The answer was: ${currentCard.answer}. Moving to next question.`);
+      this.speak('Correct! Moving to the next question.');
       setTimeout(() => this.nextFlashcard(), 2000);
+    } else {
+      this.speak(`Wrong. The correct answer is ${currentCard.answer}. Press → to continue.`);
+      // Wait for ArrowRight key before proceeding
+      this.waitForArrowRightKey();
     }
 
     if (this.onAnswerReceived) {
       this.onAnswerReceived(currentCard.id, cleanAnswer, isCorrect);
     }
+  }
+
+  private waitForArrowRightKey(): void {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowRight') {
+        document.removeEventListener('keydown', handleKeyPress);
+        setTimeout(() => this.nextFlashcard(), 500);
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyPress);
   }
 
   private validateOneWordAnswer(userAnswer: string, correctAnswer: string): boolean {
