@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
 import { SummarizationResult, generateFlashcardsFromSummary } from '../utils/summarizer';
 import FlashcardOverlay from '../components/FlashcardOverlay';
+import VoiceInteractiveFlashcard from '../components/VoiceInteractiveFlashcard';
 
 const Popup: React.FC = () => {
   const [currentText, setCurrentText] = useState<string>('');
@@ -10,6 +11,7 @@ const Popup: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
+  const [showVoiceFlashcards, setShowVoiceFlashcards] = useState<boolean>(false);
   const [saturation, setSaturation] = useState<number>(100);
 
   const startStudying = async () => {
@@ -37,6 +39,40 @@ const Popup: React.FC = () => {
           // Generate simple flashcards and show overlay
           generateFlashcardsFromSummary((response as any).summarization.summary);
           setShowFlashcards(true);
+        }
+      } else {
+        setError((response as any).error || 'Failed to extract text');
+      }
+    } catch (err) {
+      setError('Error extracting text from current page');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startVoiceStudying = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      
+      if ((response as any).success) {
+        setCurrentText((response as any).text);
+        if ((response as any).processed) {
+          setCurrentProcessed((response as any).processed);
+        }
+        if ((response as any).summarization) {
+          setCurrentSummarization((response as any).summarization);
+          setShowVoiceFlashcards(true);
         }
       } else {
         setError((response as any).error || 'Failed to extract text');
@@ -156,6 +192,14 @@ const Popup: React.FC = () => {
           className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg mb-3 transition-colors text-lg"
         >
           {loading ? '🧠 Processing...' : '🎯 Start Studying'}
+        </button>
+
+        <button
+          onClick={startVoiceStudying}
+          disabled={loading}
+          className="w-full bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg mb-3 transition-colors text-lg"
+        >
+          {loading ? '🎤 Processing...' : '🎤 Start Voice Study'}
         </button>
 
         {/* Saturation Control Section */}
@@ -283,6 +327,16 @@ const Popup: React.FC = () => {
           flashcards={generateFlashcardsFromSummary(currentSummarization.summary)}
           onClose={() => setShowFlashcards(false)}
           summary={currentSummarization.summary.text}
+        />
+      )}
+
+      {showVoiceFlashcards && currentText && (
+        <VoiceInteractiveFlashcard
+          content={currentText}
+          onClose={() => setShowVoiceFlashcards(false)}
+          onSessionComplete={(session) => {
+            console.log('Voice session completed:', session);
+          }}
         />
       )}
     </div>
