@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
-import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
-import { SummarizationResult, generateFlashcardsFromSummary } from '../utils/summarizer';
-import FlashcardOverlay from '../components/FlashcardOverlay';
-import VoiceInteractiveFlashcard from '../components/VoiceInteractiveFlashcard';
+import { generateFlashcardsFromSummary } from '../utils/summarizer';
 
-const Popup: React.FC = () => {
+interface PopupProps {}
+
+const Popup: React.FC<PopupProps> = () => {
   const [currentText, setCurrentText] = useState<string>('');
-  const [currentProcessed, setCurrentProcessed] = useState<ProcessedText | null>(null);
-  const [currentSummarization, setCurrentSummarization] = useState<SummarizationResult | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [currentProcessed, setCurrentProcessed] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
-  const [showVoiceFlashcards, setShowVoiceFlashcards] = useState<boolean>(false);
   const [saturation, setSaturation] = useState<number>(100);
 
   const startStudying = async () => {
@@ -35,10 +31,17 @@ const Popup: React.FC = () => {
           setCurrentProcessed((response as any).processed);
         }
         if ((response as any).summarization) {
-          setCurrentSummarization((response as any).summarization);
-          // Generate simple flashcards and show overlay
-          generateFlashcardsFromSummary((response as any).summarization.summary);
-          setShowFlashcards(true);
+          // Send message to content script to show overlay on webpage
+          const simpleFlashcards = generateFlashcardsFromSummary((response as any).summarization.summary);
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]?.id) {
+              chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'SHOW_FLASHCARD_OVERLAY',
+                flashcards: simpleFlashcards,
+                summary: (response as any).summarization.summary.text
+              });
+            }
+          });
         }
       } else {
         setError((response as any).error || 'Failed to extract text');
@@ -71,8 +74,15 @@ const Popup: React.FC = () => {
           setCurrentProcessed((response as any).processed);
         }
         if ((response as any).summarization) {
-          setCurrentSummarization((response as any).summarization);
-          setShowVoiceFlashcards(true);
+          // Send message to content script to show voice overlay on webpage
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]?.id) {
+              chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'SHOW_VOICE_FLASHCARD',
+                content: (response as any).text
+              });
+            }
+          });
         }
       } else {
         setError((response as any).error || 'Failed to extract text');
@@ -150,14 +160,14 @@ const Popup: React.FC = () => {
     applySaturationFilter(100);
   };
 
-  const renderTextStats = (processed: ProcessedText) => (
+  const renderTextStats = (processed: any) => (
     <div className="text-xs text-gray-600 space-y-1 mb-2">
       <div className="flex justify-between">
-        <span>{formatWordCount(processed.wordCount)}</span>
-        <span>{formatCharacterCount(processed.characterCount)}</span>
+        <span>{processed.wordCount}</span>
+        <span>{processed.characterCount}</span>
       </div>
       <div className="flex justify-between">
-        <span>Reading time: {formatReadingTime(processed.estimatedReadingTime)}</span>
+        <span>Reading time: {processed.estimatedReadingTime}</span>
         <span>Language: {processed.language.toUpperCase()}</span>
       </div>
       <div className="flex gap-2">
@@ -217,7 +227,7 @@ const Popup: React.FC = () => {
           </p>
           
           <div className="space-y-3">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2">
               <input
                 type="range"
                 min="0"
@@ -319,25 +329,6 @@ const Popup: React.FC = () => {
             </p>
           </div>
         </div>
-      )}
-
-      {/* Flashcard Overlay */}
-      {showFlashcards && currentSummarization && (
-        <FlashcardOverlay
-          flashcards={generateFlashcardsFromSummary(currentSummarization.summary)}
-          onClose={() => setShowFlashcards(false)}
-          summary={currentSummarization.summary.text}
-        />
-      )}
-
-      {showVoiceFlashcards && currentText && (
-        <VoiceInteractiveFlashcard
-          content={currentText}
-          onClose={() => setShowVoiceFlashcards(false)}
-          onSessionComplete={(session) => {
-            console.log('Voice session completed:', session);
-          }}
-        />
       )}
     </div>
   );

@@ -237,3 +237,480 @@ observer.observe(document.body, {
   childList: true,
   subtree: true
 });
+
+let isOverlayActive = false;
+
+// Listen for messages from the popup
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (request.action === 'EXTRACT_CURRENT_PAGE') {
+    const extractedText = extractMainContent();
+    const processedText = processText(extractedText);
+    
+    sendResponse({
+      success: true,
+      text: extractedText,
+      processed: processedText
+    });
+  } else if (request.action === 'SHOW_FLASHCARD_OVERLAY') {
+    showFlashcardOverlay(request.flashcards, request.summary);
+    sendResponse({ success: true });
+  } else if (request.action === 'SHOW_VOICE_FLASHCARD') {
+    showVoiceFlashcard(request.content);
+    sendResponse({ success: true });
+  } else if (request.action === 'HIDE_OVERLAY') {
+    hideOverlay();
+    sendResponse({ success: true });
+  } else if (request.action === 'APPLY_SATURATION_FILTER') {
+    applySaturationFilter(request.saturation);
+    sendResponse({ success: true });
+  }
+  
+  return true; // Keep the message channel open for async response
+});
+
+// Extract main content from the page
+function extractMainContent(): string {
+  // Remove common non-content elements
+  const elementsToRemove = [
+    'nav', 'header', 'footer', 'aside', 'menu',
+    '.navigation', '.header', '.footer', '.sidebar', '.menu',
+    '.ad', '.advertisement', '.banner', '.popup',
+    'script', 'style', 'noscript'
+  ];
+  
+  // Clone the body to avoid modifying the original page
+  const bodyClone = document.body.cloneNode(true) as HTMLElement;
+  
+  // Remove unwanted elements
+  elementsToRemove.forEach(selector => {
+    const elements = bodyClone.querySelectorAll(selector);
+    elements.forEach(el => el.remove());
+  });
+  
+  // Get text content
+  let text = bodyClone.textContent || '';
+  
+  // Clean up the text
+  text = text
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .replace(/\n+/g, '\n') // Replace multiple newlines with single newline
+    .trim();
+  
+  return text;
+}
+
+// Process extracted text
+function processText(text: string) {
+  const words = text.split(/\s+/).length;
+  const characters = text.length;
+  const estimatedReadingTime = Math.ceil(words / 200); // 200 words per minute
+  
+  return {
+    wordCount: words,
+    characterCount: characters,
+    estimatedReadingTime,
+    language: 'en',
+    hasCode: /<code>|<pre>|function|class|const|let|var/.test(text),
+    hasLinks: /<a\s+href/.test(text),
+    keywords: extractKeywords(text)
+  };
+}
+
+// Extract keywords from text
+function extractKeywords(text: string): string[] {
+  const words = text.toLowerCase().match(/\b\w+\b/g) || [];
+  const wordFreq: { [key: string]: number } = {};
+  
+  words.forEach(word => {
+    if (word.length > 3) {
+      wordFreq[word] = (wordFreq[word] || 0) + 1;
+    }
+  });
+  
+  return Object.entries(wordFreq)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 5)
+    .map(([word]) => word);
+}
+
+// Show flashcard overlay on the webpage
+function showFlashcardOverlay(flashcards: string[], summary?: string) {
+  if (isOverlayActive) return;
+  
+  const overlay = document.createElement('div');
+  overlay.id = 'starlet25-flashcard-overlay';
+  overlay.innerHTML = `
+    <div class="starlet25-overlay-container">
+      <div class="starlet25-flashcard-content">
+        <div class="starlet25-header">
+          <h2>Study Notes</h2>
+          <button class="starlet25-close-btn">×</button>
+        </div>
+        <div class="starlet25-card-content">
+          <p class="starlet25-card-text">${flashcards[0] || 'No content available'}</p>
+        </div>
+        <div class="starlet25-navigation">
+          <button class="starlet25-nav-btn starlet25-prev-btn">← Previous</button>
+          <div class="starlet25-progress">
+            ${flashcards.map((_, i) => `<span class="starlet25-dot${i === 0 ? ' active' : ''}" data-index="${i}"></span>`).join('')}
+          </div>
+          <button class="starlet25-nav-btn starlet25-next-btn">Next →</button>
+        </div>
+        ${summary ? `
+        <div class="starlet25-summary-section">
+          <button class="starlet25-summary-toggle">📋 Show Summary</button>
+          <div class="starlet25-summary-content" style="display: none;">
+            <h3>📋 Page Summary</h3>
+            <p>${summary}</p>
+            <div class="starlet25-summary-actions">
+              <button class="starlet25-speak-summary">🔊 Read</button>
+              <button class="starlet25-download-summary">📥 Download</button>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  
+  // Add styles
+  const style = document.createElement('style');
+  style.textContent = `
+    #starlet25-flashcard-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    .starlet25-overlay-container {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      color: white;
+      position: relative;
+    }
+    
+    .starlet25-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 24px;
+    }
+    
+    .starlet25-header h2 {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 0;
+    }
+    
+    .starlet25-close-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 32px;
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    
+    .starlet25-close-btn:hover {
+      opacity: 1;
+    }
+    
+    .starlet25-card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      min-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .starlet25-card-text {
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.6;
+      margin: 0;
+      max-width: 100%;
+      word-wrap: break-word;
+    }
+    
+    .starlet25-navigation {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-top: 32px;
+    }
+    
+    .starlet25-nav-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-weight: 500;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+      backdrop-filter: blur(8px);
+    }
+    
+    .starlet25-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .starlet25-nav-btn:disabled {
+      background: rgba(255, 255, 255, 0.1);
+      cursor: not-allowed;
+    }
+    
+    .starlet25-progress {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .starlet25-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .starlet25-dot.active {
+      background: white;
+    }
+    
+    .starlet25-dot:hover {
+      background: rgba(255, 255, 255, 0.6);
+    }
+    
+    .starlet25-summary-section {
+      width: 100%;
+      margin-top: 24px;
+    }
+    
+    .starlet25-summary-toggle {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+      backdrop-filter: blur(8px);
+    }
+    
+    .starlet25-summary-toggle:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .starlet25-summary-content {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 16px;
+      color: #333;
+    }
+    
+    .starlet25-summary-content h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 16px 0;
+    }
+    
+    .starlet25-summary-content p {
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 0 16px 0;
+    }
+    
+    .starlet25-summary-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .starlet25-summary-actions button {
+      background: #3b82f6;
+      border: none;
+      color: white;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .starlet25-summary-actions button:hover {
+      background: #2563eb;
+    }
+  `;
+  
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+  
+  // Add global functions for navigation
+  let currentCardIndex = 0;
+  const cardText = overlay.querySelector('.starlet25-card-text') as HTMLElement;
+  const dots = overlay.querySelectorAll('.starlet25-dot');
+  const summaryContent = overlay.querySelector('.starlet25-summary-content') as HTMLElement;
+  const summaryToggle = overlay.querySelector('.starlet25-summary-toggle') as HTMLButtonElement;
+  
+  // Debug logs for summary elements
+  console.log('Debug - summaryToggle found:', !!summaryToggle);
+  console.log('Debug - summaryContent found:', !!summaryContent);
+  console.log('Debug - summary text:', summary);
+
+  // Attach event listeners for navigation and summary actions
+  const prevBtn = overlay.querySelector('.starlet25-prev-btn') as HTMLButtonElement;
+  const nextBtn = overlay.querySelector('.starlet25-next-btn') as HTMLButtonElement;
+  const closeBtn = overlay.querySelector('.starlet25-close-btn') as HTMLButtonElement;
+  const speakBtn = overlay.querySelector('.starlet25-speak-summary') as HTMLButtonElement;
+  const downloadBtn = overlay.querySelector('.starlet25-download-summary') as HTMLButtonElement;
+
+  prevBtn?.addEventListener('click', () => {
+    if (currentCardIndex > 0) {
+      currentCardIndex--;
+      updateCard();
+    }
+  });
+  nextBtn?.addEventListener('click', () => {
+    if (currentCardIndex < flashcards.length - 1) {
+      currentCardIndex++;
+      updateCard();
+    }
+  });
+  dots.forEach((dot, i) => {
+    dot.addEventListener('click', () => {
+      currentCardIndex = i;
+      updateCard();
+    });
+  });
+  closeBtn?.addEventListener('click', () => {
+    overlay.remove();
+  });
+  if (summaryToggle) {
+    console.log('Debug - Adding event listener to summary toggle');
+    summaryToggle.addEventListener('click', () => {
+      console.log('Debug - Summary toggle clicked!');
+      if (!summaryContent) {
+        console.warn('Summary content element not found!');
+        return;
+      }
+      const isVisible = summaryContent.style.display !== 'none';
+      console.log('Debug - Current visibility:', isVisible);
+      summaryContent.style.display = isVisible ? 'none' : 'block';
+      summaryToggle.textContent = isVisible ? '📋 Show Summary' : '📋 Hide Summary';
+      console.log('Summary toggle clicked. Now visible:', !isVisible);
+    });
+  } else {
+    console.warn('Debug - Summary toggle button not found!');
+  }
+  if (speakBtn) {
+    speakBtn.addEventListener('click', () => {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(summary);
+        window.speechSynthesis.speak(utterance);
+      }
+    });
+  }
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      const content = `Page Summary\n${'='.repeat(50)}\n\n${summary}\n\nStudy Notes\n${'='.repeat(50)}\n\n${flashcards.map((note, index) => `${index + 1}. ${note}`).join('\n\n')}\n\nGenerated on: ${new Date().toLocaleString()}`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `study_notes_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+  
+  function updateCard() {
+    cardText.textContent = flashcards[currentCardIndex] || 'No content available';
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentCardIndex);
+    });
+  }
+  
+  // Add keyboard navigation
+  const handleKeyPress = (event: KeyboardEvent) => {
+    switch (event.key) {
+      case 'ArrowRight':
+      case ' ':
+        event.preventDefault();
+        (window as any).starlet25NextCard();
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        (window as any).starlet25PrevCard();
+        break;
+      case 'Escape':
+        event.preventDefault();
+        overlay.remove();
+        break;
+    }
+  };
+  
+  document.addEventListener('keydown', handleKeyPress);
+  
+  // Cleanup when overlay is removed
+  overlay.addEventListener('remove', () => {
+    document.removeEventListener('keydown', handleKeyPress);
+    isOverlayActive = false;
+  });
+  
+  isOverlayActive = true;
+}
+
+// Show voice flashcard overlay
+function showVoiceFlashcard(content: string) {
+  // Similar implementation for voice flashcards
+  // This would create a voice-interactive overlay
+  console.log('Voice flashcard requested for content:', content);
+}
+
+// Hide overlay
+function hideOverlay() {
+  const overlay = document.getElementById('starlet25-flashcard-overlay');
+  if (overlay) {
+    overlay.remove();
+    isOverlayActive = false;
+  }
+}
+
+// Apply saturation filter
+function applySaturationFilter(saturation: number) {
+  const style = document.getElementById('starlet25-saturation-filter') || 
+               document.createElement('style');
+  style.id = 'starlet25-saturation-filter';
+  style.textContent = `* { filter: saturate(${saturation}%) !important; }`;
+  if (!document.getElementById('starlet25-saturation-filter')) {
+    document.head.appendChild(style);
+  }
+}
