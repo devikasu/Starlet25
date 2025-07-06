@@ -11,6 +11,101 @@ interface ExtractedText {
   timestamp: number;
 }
 
+let isOverlayActive = false;
+
+// Listen for messages from popup and background
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (request.action === 'EXTRACT_TEXT') {
+    const text = extractReadableText();
+    sendResponse({ text, url: window.location.href, title: document.title });
+  }
+  
+  if (request.action === 'START_VOICE_ASSISTANT') {
+    console.log('🎤 Starlet25: Received START_VOICE_ASSISTANT command in content script');
+    sendResponse({ success: true, message: 'Voice assistant ready' });
+  }
+  
+  if (request.action === 'EXTRACT_CURRENT_PAGE') {
+    const extractedText = extractMainContent();
+    const processedText = processText(extractedText);
+    
+    sendResponse({
+      success: true,
+      text: extractedText,
+      processed: processedText
+    });
+  } else if (request.action === 'SHOW_FLASHCARD_OVERLAY') {
+    console.log('Content script: Received SHOW_FLASHCARD_OVERLAY message');
+    console.log('Content script: Flashcards:', request.flashcards);
+    console.log('Content script: Summary:', request.summary);
+    showFlashcardOverlay(request.flashcards, request.summary);
+    sendResponse({ success: true });
+  } else if (request.action === 'SHOW_VOICE_FLASHCARD') {
+    showVoiceFlashcard(request.content);
+    sendResponse({ success: true });
+  } else if (request.action === 'HIDE_OVERLAY') {
+    hideOverlay();
+    sendResponse({ success: true });
+  } else if (request.action === 'APPLY_SATURATION_FILTER') {
+    console.log('🎨 Starlet25: Received APPLY_SATURATION_FILTER command in content script');
+    try {
+      const { saturation } = request;
+      console.log('🎨 Starlet25: Applying saturation filter:', saturation + '%');
+      
+      // Remove existing saturation filter if any
+      const existingFilter = document.getElementById('starlet25-saturation-filter');
+      if (existingFilter) {
+        existingFilter.remove();
+      }
+      
+      // Also clear any inline filters
+      document.documentElement.style.filter = '';
+      document.body.style.filter = '';
+      
+      // Only apply filter if saturation is not 100% (normal)
+      if (saturation !== 100) {
+        // Try multiple approaches for better compatibility
+        
+        // Method 1: Style element (preferred)
+        try {
+          const styleElement = document.createElement('style');
+          styleElement.id = 'starlet25-saturation-filter';
+          styleElement.textContent = `
+            html {
+              filter: saturate(${saturation}%) !important;
+            }
+          `;
+          document.head.appendChild(styleElement);
+          console.log('🎨 Starlet25: Saturation filter applied via style element');
+        } catch (styleError) {
+          console.warn('🎨 Style element method failed, trying inline:', styleError);
+          
+          // Method 2: Inline style on html element
+          try {
+            document.documentElement.style.filter = `saturate(${saturation}%)`;
+            console.log('🎨 Starlet25: Saturation filter applied via inline style');
+          } catch (inlineError) {
+            console.warn('🎨 Inline style method failed, trying body:', inlineError);
+            
+            // Method 3: Inline style on body element
+            document.body.style.filter = `saturate(${saturation}%)`;
+            console.log('🎨 Starlet25: Saturation filter applied via body style');
+          }
+        }
+      } else {
+        console.log('🎨 Starlet25: Saturation reset to normal (100%)');
+      }
+      
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error('🎨 Starlet25: Error applying saturation filter:', error);
+      sendResponse({ success: false, error: 'Failed to apply saturation filter' });
+    }
+  }
+  
+  return true; // Keep the message channel open for async response
+});
+
 function getMainContent(): HTMLElement | null {
   const selectors = [
     'main',
@@ -143,131 +238,6 @@ function sendTextToBackground(): void {
   console.log('Starlet25: Extracted text length:', text.length);
 }
 
-// Listen for messages from popup and background
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-  if (request.action === 'EXTRACT_TEXT') {
-    const text = extractReadableText();
-    sendResponse({ text, url: window.location.href, title: document.title });
-  }
-  
-  if (request.action === 'START_VOICE_ASSISTANT') {
-    console.log('🎤 Starlet25: Received START_VOICE_ASSISTANT command in content script');
-    // Voice assistant functionality will be handled by the popup components
-    sendResponse({ success: true, message: 'Voice assistant ready' });
-  }
-  
-  // Handle saturation filter
-  if (request.action === 'APPLY_SATURATION_FILTER') {
-    console.log('🎨 Starlet25: Received APPLY_SATURATION_FILTER command in content script');
-    try {
-      const { saturation } = request;
-      console.log('🎨 Starlet25: Applying saturation filter:', saturation + '%');
-      
-      // Remove existing saturation filter if any
-      const existingFilter = document.getElementById('starlet25-saturation-filter');
-      if (existingFilter) {
-        existingFilter.remove();
-      }
-      
-      // Also clear any inline filters
-      document.documentElement.style.filter = '';
-      document.body.style.filter = '';
-      
-      // Only apply filter if saturation is not 100% (normal)
-      if (saturation !== 100) {
-        // Try multiple approaches for better compatibility
-        
-        // Method 1: Style element (preferred)
-        try {
-          const styleElement = document.createElement('style');
-          styleElement.id = 'starlet25-saturation-filter';
-          styleElement.textContent = `
-            html {
-              filter: saturate(${saturation}%) !important;
-            }
-          `;
-          document.head.appendChild(styleElement);
-          console.log('🎨 Starlet25: Saturation filter applied via style element');
-        } catch (styleError) {
-          console.warn('🎨 Style element method failed, trying inline:', styleError);
-          
-          // Method 2: Inline style on html element
-          try {
-            document.documentElement.style.filter = `saturate(${saturation}%)`;
-            console.log('🎨 Starlet25: Saturation filter applied via inline style');
-          } catch (inlineError) {
-            console.warn('🎨 Inline style method failed, trying body:', inlineError);
-            
-            // Method 3: Inline style on body element
-            document.body.style.filter = `saturate(${saturation}%)`;
-            console.log('🎨 Starlet25: Saturation filter applied via body style');
-          }
-        }
-      } else {
-        console.log('🎨 Starlet25: Saturation reset to normal (100%)');
-      }
-      
-      sendResponse({ success: true });
-    } catch (error) {
-      console.error('🎨 Starlet25: Error applying saturation filter:', error);
-      sendResponse({ success: false, error: 'Failed to apply saturation filter' });
-    }
-  }
-});
-
-// Initialize on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    sendTextToBackground();
-  });
-} else {
-  sendTextToBackground();
-}
-
-let lastTextLength = 0;
-const observer = new MutationObserver(() => {
-  const text = extractReadableText();
-  if (Math.abs(text.length - lastTextLength) > 100) {
-    lastTextLength = text.length;
-    sendTextToBackground();
-  }
-});
-
-observer.observe(document.body, {
-  childList: true,
-  subtree: true
-});
-
-let isOverlayActive = false;
-
-// Listen for messages from the popup
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-  if (request.action === 'EXTRACT_CURRENT_PAGE') {
-    const extractedText = extractMainContent();
-    const processedText = processText(extractedText);
-    
-    sendResponse({
-      success: true,
-      text: extractedText,
-      processed: processedText
-    });
-  } else if (request.action === 'SHOW_FLASHCARD_OVERLAY') {
-    showFlashcardOverlay(request.flashcards, request.summary);
-    sendResponse({ success: true });
-  } else if (request.action === 'SHOW_VOICE_FLASHCARD') {
-    showVoiceFlashcard(request.content);
-    sendResponse({ success: true });
-  } else if (request.action === 'HIDE_OVERLAY') {
-    hideOverlay();
-    sendResponse({ success: true });
-  } else if (request.action === 'APPLY_SATURATION_FILTER') {
-    applySaturationFilter(request.saturation);
-    sendResponse({ success: true });
-  }
-  
-  return true; // Keep the message channel open for async response
-});
-
 // Extract main content from the page
 function extractMainContent(): string {
   // Remove common non-content elements
@@ -360,11 +330,12 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
         <div class="starlet25-summary-section">
           <button class="starlet25-summary-toggle">📋 Show Summary</button>
           <div class="starlet25-summary-content" style="display: none;">
-            <h3>📋 Page Summary</h3>
+            <h3>�� Page Summary</h3>
             <p>${summary}</p>
             <div class="starlet25-summary-actions">
               <button class="starlet25-speak-summary">🔊 Read</button>
               <button class="starlet25-download-summary">📥 Download</button>
+              <button class="starlet25-download-braille">📄 Download for Braille</button>
             </div>
           </div>
         </div>
@@ -382,26 +353,29 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 999999;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 2147483647;
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      backdrop-filter: blur(4px);
     }
     
     .starlet25-overlay-container {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-      width: 90%;
-      max-width: 600px;
-      max-height: 80vh;
+      border-radius: 20px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+      width: 95%;
+      max-width: 900px;
+      min-height: 85vh;
+      max-height: 90vh;
       display: flex;
       flex-direction: column;
-      padding: 24px;
+      padding: 40px;
       color: white;
       position: relative;
+      overflow: hidden;
     }
     
     .starlet25-header {
@@ -439,18 +413,19 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
       justify-content: center;
       align-items: center;
       width: 100%;
-      min-height: 200px;
-      overflow-y: auto;
+      min-height: 300px;
+      padding: 20px 0;
     }
     
     .starlet25-card-text {
-      font-size: 20px;
+      font-size: clamp(20px, 4vw, 32px);
       font-weight: 600;
       text-align: center;
-      line-height: 1.6;
+      line-height: 1.5;
       margin: 0;
       max-width: 100%;
       word-wrap: break-word;
+      hyphens: auto;
     }
     
     .starlet25-navigation {
@@ -566,6 +541,14 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
     .starlet25-summary-actions button:hover {
       background: #2563eb;
     }
+    
+    .starlet25-download-braille {
+      background: #059669 !important;
+    }
+    
+    .starlet25-download-braille:hover {
+      background: #047857 !important;
+    }
   `;
   
   document.head.appendChild(style);
@@ -582,6 +565,8 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
   console.log('Debug - summaryToggle found:', !!summaryToggle);
   console.log('Debug - summaryContent found:', !!summaryContent);
   console.log('Debug - summary text:', summary);
+  console.log('Debug - Overlay created and appended to body');
+  console.log('Debug - Overlay element:', overlay);
 
   // Attach event listeners for navigation and summary actions
   const prevBtn = overlay.querySelector('.starlet25-prev-btn') as HTMLButtonElement;
@@ -589,6 +574,7 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
   const closeBtn = overlay.querySelector('.starlet25-close-btn') as HTMLButtonElement;
   const speakBtn = overlay.querySelector('.starlet25-speak-summary') as HTMLButtonElement;
   const downloadBtn = overlay.querySelector('.starlet25-download-summary') as HTMLButtonElement;
+  const downloadBrailleBtn = overlay.querySelector('.starlet25-download-braille') as HTMLButtonElement;
 
   prevBtn?.addEventListener('click', () => {
     if (currentCardIndex > 0) {
@@ -651,6 +637,22 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
     });
   }
   
+  if (downloadBrailleBtn) {
+    downloadBrailleBtn.addEventListener('click', () => {
+      // Format content specifically for Braille conversion
+      const brailleContent = formatForBraille(summary || 'No summary available', flashcards);
+      const blob = new Blob([brailleContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `braille_study_notes_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+  
   function updateCard() {
     cardText.textContent = flashcards[currentCardIndex] || 'No content available';
     dots.forEach((dot, index) => {
@@ -664,11 +666,17 @@ function showFlashcardOverlay(flashcards: string[], summary?: string) {
       case 'ArrowRight':
       case ' ':
         event.preventDefault();
-        (window as any).starlet25NextCard();
+        if (currentCardIndex < flashcards.length - 1) {
+          currentCardIndex++;
+          updateCard();
+        }
         break;
       case 'ArrowLeft':
         event.preventDefault();
-        (window as any).starlet25PrevCard();
+        if (currentCardIndex > 0) {
+          currentCardIndex--;
+          updateCard();
+        }
         break;
       case 'Escape':
         event.preventDefault();
@@ -704,6 +712,58 @@ function hideOverlay() {
   }
 }
 
+// Format content specifically for Braille conversion
+function formatForBraille(summary: string, flashcards: string[]): string {
+  // Braille formatting guidelines:
+  // - Use simple punctuation
+  // - Avoid complex formatting
+  // - Use clear section breaks
+  // - Keep lines at reasonable length
+  // - Use descriptive headers
+  
+  const lines: string[] = [];
+  
+  // Header
+  lines.push('STUDY NOTES FOR BRAILLE CONVERSION');
+  lines.push('='.repeat(40));
+  lines.push('');
+  
+  // Summary section
+  lines.push('PAGE SUMMARY');
+  lines.push('-'.repeat(20));
+  lines.push('');
+  
+  // Format summary for Braille (simple, clear sentences)
+  const summaryLines = summary
+    .split('. ')
+    .map(sentence => sentence.trim())
+    .filter(sentence => sentence.length > 0)
+    .map(sentence => sentence + '.');
+  
+  lines.push(...summaryLines);
+  lines.push('');
+  
+  // Flashcards section
+  lines.push('STUDY FLASHCARDS');
+  lines.push('-'.repeat(20));
+  lines.push('');
+  
+  // Format flashcards for Braille
+  flashcards.forEach((flashcard, index) => {
+    lines.push(`CARD ${index + 1}:`);
+    lines.push(flashcard);
+    lines.push('');
+  });
+  
+  // Footer
+  lines.push('END OF STUDY NOTES');
+  lines.push('='.repeat(40));
+  lines.push(`Generated on: ${new Date().toLocaleString()}`);
+  lines.push('Formatted for Braille conversion');
+  
+  return lines.join('\n');
+}
+
 // Apply saturation filter
 function applySaturationFilter(saturation: number) {
   const style = document.getElementById('starlet25-saturation-filter') || 
@@ -714,3 +774,27 @@ function applySaturationFilter(saturation: number) {
     document.head.appendChild(style);
   }
 }
+
+// Initialize content script
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    sendTextToBackground();
+  });
+} else {
+  sendTextToBackground();
+}
+
+// Monitor for content changes
+let lastTextLength = 0;
+const observer = new MutationObserver(() => {
+  const currentText = extractReadableText();
+  if (Math.abs(currentText.length - lastTextLength) > 100) {
+    lastTextLength = currentText.length;
+    sendTextToBackground();
+  }
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true
+});

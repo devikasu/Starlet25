@@ -1,12 +1,12 @@
-console.log("Starlet25 content script loaded");function T(){const t=["main","article",'[role="main"]',".main-content",".content",".post-content",".entry-content","#content","#main"];for(const e of t){const n=document.querySelector(e);if(n)return n}return Array.from(document.querySelectorAll("div, section, p")).filter(e=>(e.textContent||"").length>200&&!e.querySelector("nav, header, footer, aside")).sort((e,n)=>(n.textContent?.length||0)-(e.textContent?.length||0))[0]||null}function A(t){["nav","header","footer","aside",".nav",".navigation",".menu",".sidebar",".footer",".header",'[role="navigation"]','[role="banner"]','[role="contentinfo"]','[role="complementary"]'].forEach(r=>{t.querySelectorAll(r).forEach(l=>l.remove())}),[".ad",".advertisement",".banner",".popup",".modal",".overlay",".cookie-banner",".newsletter-signup",".social-share",".comments",".related-posts",".recommendations"].forEach(r=>{t.querySelectorAll(r).forEach(l=>l.remove())}),t.querySelectorAll("script, style, noscript").forEach(r=>r.remove())}function L(t){return t.replace(/\s+/g," ").replace(/\n\s*\n/g,`
-`).trim()}function y(){const t=T();if(!t)return"";const o=t.cloneNode(!0);A(o);let e=o.innerText||o.textContent||"";return e=L(e),e.split(`
-`).filter(r=>{const s=r.trim();return s.length>10||s.length===0}).join(`
-`).trim()}function p(){const t=y();if(t.length<50){console.log("Starlet25: Not enough text content found");return}const o={type:"PAGE_TEXT",text:t,url:window.location.href,title:document.title,timestamp:Date.now()};chrome.runtime.sendMessage(o,e=>{chrome.runtime.lastError?console.log("Starlet25: Error sending message to background:",chrome.runtime.lastError.message):e&&console.log("Starlet25: Message sent successfully to background")}),console.log("Starlet25: Extracted text length:",t.length)}chrome.runtime.onMessage.addListener((t,o,e)=>{if(t.action==="EXTRACT_TEXT"){const n=y();e({text:n,url:window.location.href,title:document.title})}if(t.action==="START_VOICE_ASSISTANT"&&(console.log("🎤 Starlet25: Received START_VOICE_ASSISTANT command in content script"),e({success:!0,message:"Voice assistant ready"})),t.action==="APPLY_SATURATION_FILTER"){console.log("🎨 Starlet25: Received APPLY_SATURATION_FILTER command in content script");try{const{saturation:n}=t;console.log("🎨 Starlet25: Applying saturation filter:",n+"%");const r=document.getElementById("starlet25-saturation-filter");if(r&&r.remove(),document.documentElement.style.filter="",document.body.style.filter="",n!==100)try{const s=document.createElement("style");s.id="starlet25-saturation-filter",s.textContent=`
+console.log("Starlet25 content script loaded");let g=!1;chrome.runtime.onMessage.addListener((t,r,e)=>{if(t.action==="EXTRACT_TEXT"){const n=b();e({text:n,url:window.location.href,title:document.title})}if(t.action==="START_VOICE_ASSISTANT"&&(console.log("🎤 Starlet25: Received START_VOICE_ASSISTANT command in content script"),e({success:!0,message:"Voice assistant ready"})),t.action==="EXTRACT_CURRENT_PAGE"){const n=O(),o=D(n);e({success:!0,text:n,processed:o})}else if(t.action==="SHOW_FLASHCARD_OVERLAY")console.log("Content script: Received SHOW_FLASHCARD_OVERLAY message"),console.log("Content script: Flashcards:",t.flashcards),console.log("Content script: Summary:",t.summary),N(t.flashcards,t.summary),e({success:!0});else if(t.action==="SHOW_VOICE_FLASHCARD")$(t.content),e({success:!0});else if(t.action==="HIDE_OVERLAY")I(),e({success:!0});else if(t.action==="APPLY_SATURATION_FILTER"){console.log("🎨 Starlet25: Received APPLY_SATURATION_FILTER command in content script");try{const{saturation:n}=t;console.log("🎨 Starlet25: Applying saturation filter:",n+"%");const o=document.getElementById("starlet25-saturation-filter");if(o&&o.remove(),document.documentElement.style.filter="",document.body.style.filter="",n!==100)try{const s=document.createElement("style");s.id="starlet25-saturation-filter",s.textContent=`
             html {
               filter: saturate(${n}%) !important;
             }
-          `,document.head.appendChild(s),console.log("🎨 Starlet25: Saturation filter applied via style element")}catch(s){console.warn("🎨 Style element method failed, trying inline:",s);try{document.documentElement.style.filter=`saturate(${n}%)`,console.log("🎨 Starlet25: Saturation filter applied via inline style")}catch(l){console.warn("🎨 Inline style method failed, trying body:",l),document.body.style.filter=`saturate(${n}%)`,console.log("🎨 Starlet25: Saturation filter applied via body style")}}else console.log("🎨 Starlet25: Saturation reset to normal (100%)");e({success:!0})}catch(n){console.error("🎨 Starlet25: Error applying saturation filter:",n),e({success:!1,error:"Failed to apply saturation filter"})}}});document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{p()}):p();let x=0;const _=new MutationObserver(()=>{const t=y();Math.abs(t.length-x)>100&&(x=t.length,p())});_.observe(document.body,{childList:!0,subtree:!0});let m=!1;chrome.runtime.onMessage.addListener((t,o,e)=>{if(t.action==="EXTRACT_CURRENT_PAGE"){const n=R(),r=I(n);e({success:!0,text:n,processed:r})}else t.action==="SHOW_FLASHCARD_OVERLAY"?(D(t.flashcards,t.summary),e({success:!0})):t.action==="SHOW_VOICE_FLASHCARD"?($(t.content),e({success:!0})):t.action==="HIDE_OVERLAY"?(N(),e({success:!0})):t.action==="APPLY_SATURATION_FILTER"&&(P(t.saturation),e({success:!0}));return!0});function R(){const t=["nav","header","footer","aside","menu",".navigation",".header",".footer",".sidebar",".menu",".ad",".advertisement",".banner",".popup","script","style","noscript"],o=document.body.cloneNode(!0);t.forEach(n=>{o.querySelectorAll(n).forEach(s=>s.remove())});let e=o.textContent||"";return e=e.replace(/\s+/g," ").replace(/\n+/g,`
-`).trim(),e}function I(t){const o=t.split(/\s+/).length,e=t.length,n=Math.ceil(o/200);return{wordCount:o,characterCount:e,estimatedReadingTime:n,language:"en",hasCode:/<code>|<pre>|function|class|const|let|var/.test(t),hasLinks:/<a\s+href/.test(t),keywords:O(t)}}function O(t){const o=t.toLowerCase().match(/\b\w+\b/g)||[],e={};return o.forEach(n=>{n.length>3&&(e[n]=(e[n]||0)+1)}),Object.entries(e).sort(([,n],[,r])=>r-n).slice(0,5).map(([n])=>n)}function D(t,o){if(m)return;const e=document.createElement("div");e.id="starlet25-flashcard-overlay",e.innerHTML=`
+          `,document.head.appendChild(s),console.log("🎨 Starlet25: Saturation filter applied via style element")}catch(s){console.warn("🎨 Style element method failed, trying inline:",s);try{document.documentElement.style.filter=`saturate(${n}%)`,console.log("🎨 Starlet25: Saturation filter applied via inline style")}catch(i){console.warn("🎨 Inline style method failed, trying body:",i),document.body.style.filter=`saturate(${n}%)`,console.log("🎨 Starlet25: Saturation filter applied via body style")}}else console.log("🎨 Starlet25: Saturation reset to normal (100%)");e({success:!0})}catch(n){console.error("🎨 Starlet25: Error applying saturation filter:",n),e({success:!1,error:"Failed to apply saturation filter"})}}return!0});function A(){const t=["main","article",'[role="main"]',".main-content",".content",".post-content",".entry-content","#content","#main"];for(const e of t){const n=document.querySelector(e);if(n)return n}return Array.from(document.querySelectorAll("div, section, p")).filter(e=>(e.textContent||"").length>200&&!e.querySelector("nav, header, footer, aside")).sort((e,n)=>(n.textContent?.length||0)-(e.textContent?.length||0))[0]||null}function L(t){["nav","header","footer","aside",".nav",".navigation",".menu",".sidebar",".footer",".header",'[role="navigation"]','[role="banner"]','[role="contentinfo"]','[role="complementary"]'].forEach(o=>{t.querySelectorAll(o).forEach(i=>i.remove())}),[".ad",".advertisement",".banner",".popup",".modal",".overlay",".cookie-banner",".newsletter-signup",".social-share",".comments",".related-posts",".recommendations"].forEach(o=>{t.querySelectorAll(o).forEach(i=>i.remove())}),t.querySelectorAll("script, style, noscript").forEach(o=>o.remove())}function R(t){return t.replace(/\s+/g," ").replace(/\n\s*\n/g,`
+`).trim()}function b(){const t=A();if(!t)return"";const r=t.cloneNode(!0);L(r);let e=r.innerText||r.textContent||"";return e=R(e),e.split(`
+`).filter(o=>{const s=o.trim();return s.length>10||s.length===0}).join(`
+`).trim()}function h(){const t=b();if(t.length<50){console.log("Starlet25: Not enough text content found");return}const r={type:"PAGE_TEXT",text:t,url:window.location.href,title:document.title,timestamp:Date.now()};chrome.runtime.sendMessage(r,e=>{chrome.runtime.lastError?console.log("Starlet25: Error sending message to background:",chrome.runtime.lastError.message):e&&console.log("Starlet25: Message sent successfully to background")}),console.log("Starlet25: Extracted text length:",t.length)}function O(){const t=["nav","header","footer","aside","menu",".navigation",".header",".footer",".sidebar",".menu",".ad",".advertisement",".banner",".popup","script","style","noscript"],r=document.body.cloneNode(!0);t.forEach(n=>{r.querySelectorAll(n).forEach(s=>s.remove())});let e=r.textContent||"";return e=e.replace(/\s+/g," ").replace(/\n+/g,`
+`).trim(),e}function D(t){const r=t.split(/\s+/).length,e=t.length,n=Math.ceil(r/200);return{wordCount:r,characterCount:e,estimatedReadingTime:n,language:"en",hasCode:/<code>|<pre>|function|class|const|let|var/.test(t),hasLinks:/<a\s+href/.test(t),keywords:_(t)}}function _(t){const r=t.toLowerCase().match(/\b\w+\b/g)||[],e={};return r.forEach(n=>{n.length>3&&(e[n]=(e[n]||0)+1)}),Object.entries(e).sort(([,n],[,o])=>o-n).slice(0,5).map(([n])=>n)}function N(t,r){if(g)return;const e=document.createElement("div");e.id="starlet25-flashcard-overlay",e.innerHTML=`
     <div class="starlet25-overlay-container">
       <div class="starlet25-flashcard-content">
         <div class="starlet25-header">
@@ -23,15 +23,16 @@ console.log("Starlet25 content script loaded");function T(){const t=["main","art
           </div>
           <button class="starlet25-nav-btn starlet25-next-btn">Next →</button>
         </div>
-        ${o?`
+        ${r?`
         <div class="starlet25-summary-section">
           <button class="starlet25-summary-toggle">📋 Show Summary</button>
           <div class="starlet25-summary-content" style="display: none;">
-            <h3>📋 Page Summary</h3>
-            <p>${o}</p>
+            <h3>�� Page Summary</h3>
+            <p>${r}</p>
             <div class="starlet25-summary-actions">
               <button class="starlet25-speak-summary">🔊 Read</button>
               <button class="starlet25-download-summary">📥 Download</button>
+              <button class="starlet25-download-braille">📄 Download for Braille</button>
             </div>
           </div>
         </div>
@@ -45,26 +46,29 @@ console.log("Starlet25 content script loaded");function T(){const t=["main","art
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 999999;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 2147483647;
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      backdrop-filter: blur(4px);
     }
     
     .starlet25-overlay-container {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-      width: 90%;
-      max-width: 600px;
-      max-height: 80vh;
+      border-radius: 20px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+      width: 95%;
+      max-width: 900px;
+      min-height: 85vh;
+      max-height: 90vh;
       display: flex;
       flex-direction: column;
-      padding: 24px;
+      padding: 40px;
       color: white;
       position: relative;
+      overflow: hidden;
     }
     
     .starlet25-header {
@@ -102,18 +106,19 @@ console.log("Starlet25 content script loaded");function T(){const t=["main","art
       justify-content: center;
       align-items: center;
       width: 100%;
-      min-height: 200px;
-      overflow-y: auto;
+      min-height: 300px;
+      padding: 20px 0;
     }
     
     .starlet25-card-text {
-      font-size: 20px;
+      font-size: clamp(20px, 4vw, 32px);
       font-weight: 600;
       text-align: center;
-      line-height: 1.6;
+      line-height: 1.5;
       margin: 0;
       max-width: 100%;
       word-wrap: break-word;
+      hyphens: auto;
     }
     
     .starlet25-navigation {
@@ -229,16 +234,25 @@ console.log("Starlet25 content script loaded");function T(){const t=["main","art
     .starlet25-summary-actions button:hover {
       background: #2563eb;
     }
-  `,document.head.appendChild(n),document.body.appendChild(e);let r=0;const s=e.querySelector(".starlet25-card-text"),l=e.querySelectorAll(".starlet25-dot"),d=e.querySelector(".starlet25-summary-content"),u=e.querySelector(".starlet25-summary-toggle");console.log("Debug - summaryToggle found:",!!u),console.log("Debug - summaryContent found:",!!d),console.log("Debug - summary text:",o);const S=e.querySelector(".starlet25-prev-btn"),w=e.querySelector(".starlet25-next-btn"),E=e.querySelector(".starlet25-close-btn"),f=e.querySelector(".starlet25-speak-summary"),h=e.querySelector(".starlet25-download-summary");S?.addEventListener("click",()=>{r>0&&(r--,g())}),w?.addEventListener("click",()=>{r<t.length-1&&(r++,g())}),l.forEach((a,c)=>{a.addEventListener("click",()=>{r=c,g()})}),E?.addEventListener("click",()=>{e.remove()}),u?(console.log("Debug - Adding event listener to summary toggle"),u.addEventListener("click",()=>{if(console.log("Debug - Summary toggle clicked!"),!d){console.warn("Summary content element not found!");return}const a=d.style.display!=="none";console.log("Debug - Current visibility:",a),d.style.display=a?"none":"block",u.textContent=a?"📋 Show Summary":"📋 Hide Summary",console.log("Summary toggle clicked. Now visible:",!a)})):console.warn("Debug - Summary toggle button not found!"),f&&f.addEventListener("click",()=>{if("speechSynthesis"in window){const a=new SpeechSynthesisUtterance(o);window.speechSynthesis.speak(a)}}),h&&h.addEventListener("click",()=>{const a=`Page Summary
+    
+    .starlet25-download-braille {
+      background: #059669 !important;
+    }
+    
+    .starlet25-download-braille:hover {
+      background: #047857 !important;
+    }
+  `,document.head.appendChild(n),document.body.appendChild(e);let o=0;const s=e.querySelector(".starlet25-card-text"),i=e.querySelectorAll(".starlet25-dot"),m=e.querySelector(".starlet25-summary-content"),p=e.querySelector(".starlet25-summary-toggle");console.log("Debug - summaryToggle found:",!!p),console.log("Debug - summaryContent found:",!!m),console.log("Debug - summary text:",r),console.log("Debug - Overlay created and appended to body"),console.log("Debug - Overlay element:",e);const w=e.querySelector(".starlet25-prev-btn"),E=e.querySelector(".starlet25-next-btn"),k=e.querySelector(".starlet25-close-btn"),y=e.querySelector(".starlet25-speak-summary"),f=e.querySelector(".starlet25-download-summary"),v=e.querySelector(".starlet25-download-braille");w?.addEventListener("click",()=>{o>0&&(o--,d())}),E?.addEventListener("click",()=>{o<t.length-1&&(o++,d())}),i.forEach((a,c)=>{a.addEventListener("click",()=>{o=c,d()})}),k?.addEventListener("click",()=>{e.remove()}),p?(console.log("Debug - Adding event listener to summary toggle"),p.addEventListener("click",()=>{if(console.log("Debug - Summary toggle clicked!"),!m){console.warn("Summary content element not found!");return}const a=m.style.display!=="none";console.log("Debug - Current visibility:",a),m.style.display=a?"none":"block",p.textContent=a?"📋 Show Summary":"📋 Hide Summary",console.log("Summary toggle clicked. Now visible:",!a)})):console.warn("Debug - Summary toggle button not found!"),y&&y.addEventListener("click",()=>{if("speechSynthesis"in window){const a=new SpeechSynthesisUtterance(r);window.speechSynthesis.speak(a)}}),f&&f.addEventListener("click",()=>{const a=`Page Summary
 ${"=".repeat(50)}
 
-${o}
+${r}
 
 Study Notes
 ${"=".repeat(50)}
 
-${t.map((k,C)=>`${C+1}. ${k}`).join(`
+${t.map((C,T)=>`${T+1}. ${C}`).join(`
 
 `)}
 
-Generated on: ${new Date().toLocaleString()}`,c=new Blob([a],{type:"text/plain;charset=utf-8"}),v=URL.createObjectURL(c),i=document.createElement("a");i.href=v,i.download=`study_notes_${new Date().toISOString().split("T")[0]}.txt`,document.body.appendChild(i),i.click(),document.body.removeChild(i),URL.revokeObjectURL(v)});function g(){s.textContent=t[r]||"No content available",l.forEach((a,c)=>{a.classList.toggle("active",c===r)})}const b=a=>{switch(a.key){case"ArrowRight":case" ":a.preventDefault(),window.starlet25NextCard();break;case"ArrowLeft":a.preventDefault(),window.starlet25PrevCard();break;case"Escape":a.preventDefault(),e.remove();break}};document.addEventListener("keydown",b),e.addEventListener("remove",()=>{document.removeEventListener("keydown",b),m=!1}),m=!0}function $(t){console.log("Voice flashcard requested for content:",t)}function N(){const t=document.getElementById("starlet25-flashcard-overlay");t&&(t.remove(),m=!1)}function P(t){const o=document.getElementById("starlet25-saturation-filter")||document.createElement("style");o.id="starlet25-saturation-filter",o.textContent=`* { filter: saturate(${t}%) !important; }`,document.getElementById("starlet25-saturation-filter")||document.head.appendChild(o)}
+Generated on: ${new Date().toLocaleString()}`,c=new Blob([a],{type:"text/plain;charset=utf-8"}),u=URL.createObjectURL(c),l=document.createElement("a");l.href=u,l.download=`study_notes_${new Date().toISOString().split("T")[0]}.txt`,document.body.appendChild(l),l.click(),document.body.removeChild(l),URL.revokeObjectURL(u)}),v&&v.addEventListener("click",()=>{const a=B(r||"No summary available",t),c=new Blob([a],{type:"text/plain;charset=utf-8"}),u=URL.createObjectURL(c),l=document.createElement("a");l.href=u,l.download=`braille_study_notes_${new Date().toISOString().split("T")[0]}.txt`,document.body.appendChild(l),l.click(),document.body.removeChild(l),URL.revokeObjectURL(u)});function d(){s.textContent=t[o]||"No content available",i.forEach((a,c)=>{a.classList.toggle("active",c===o)})}const x=a=>{switch(a.key){case"ArrowRight":case" ":a.preventDefault(),o<t.length-1&&(o++,d());break;case"ArrowLeft":a.preventDefault(),o>0&&(o--,d());break;case"Escape":a.preventDefault(),e.remove();break}};document.addEventListener("keydown",x),e.addEventListener("remove",()=>{document.removeEventListener("keydown",x),g=!1}),g=!0}function $(t){console.log("Voice flashcard requested for content:",t)}function I(){const t=document.getElementById("starlet25-flashcard-overlay");t&&(t.remove(),g=!1)}function B(t,r){const e=[];e.push("STUDY NOTES FOR BRAILLE CONVERSION"),e.push("=".repeat(40)),e.push(""),e.push("PAGE SUMMARY"),e.push("-".repeat(20)),e.push("");const n=t.split(". ").map(o=>o.trim()).filter(o=>o.length>0).map(o=>o+".");return e.push(...n),e.push(""),e.push("STUDY FLASHCARDS"),e.push("-".repeat(20)),e.push(""),r.forEach((o,s)=>{e.push(`CARD ${s+1}:`),e.push(o),e.push("")}),e.push("END OF STUDY NOTES"),e.push("=".repeat(40)),e.push(`Generated on: ${new Date().toLocaleString()}`),e.push("Formatted for Braille conversion"),e.join(`
+`)}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{h()}):h();let S=0;const F=new MutationObserver(()=>{const t=b();Math.abs(t.length-S)>100&&(S=t.length,h())});F.observe(document.body,{childList:!0,subtree:!0});
