@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { ProcessedText, formatReadingTime, formatWordCount, formatCharacterCount } from '../utils/textProcessor';
-import { SummarizationResult, Summary } from '../utils/summarizer';
-import { downloadAsTxt } from '../utils/fileExport';
-import FlashcardViewer from '../components/FlashcardViewer';
+import { SummarizationResult, generateFlashcardsFromSummary } from '../utils/summarizer';
+import FlashcardOverlay from '../components/FlashcardOverlay';
 
 const Popup: React.FC = () => {
   const [currentText, setCurrentText] = useState<string>('');
@@ -11,10 +10,9 @@ const Popup: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [showFlashcards, setShowFlashcards] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'summary' | 'flashcards'>('summary');
   const [saturation, setSaturation] = useState<number>(100);
 
-  const extractCurrentPage = async () => {
+  const startStudying = async () => {
     setLoading(true);
     setError('');
     
@@ -36,6 +34,9 @@ const Popup: React.FC = () => {
         }
         if ((response as any).summarization) {
           setCurrentSummarization((response as any).summarization);
+          // Generate simple flashcards and show overlay
+          generateFlashcardsFromSummary((response as any).summarization.summary);
+          setShowFlashcards(true);
         }
       } else {
         setError((response as any).error || 'Failed to extract text');
@@ -44,67 +45,6 @@ const Popup: React.FC = () => {
       setError('Error extracting text from current page');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const rescanPage = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({ action: 'EXTRACT_CURRENT_PAGE' }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(response);
-          }
-        });
-      });
-      
-      if ((response as any).success) {
-        setCurrentText((response as any).text);
-        if ((response as any).processed) {
-          setCurrentProcessed((response as any).processed);
-        }
-        if ((response as any).summarization) {
-          setCurrentSummarization((response as any).summarization);
-        }
-      } else {
-        setError((response as any).error || 'Failed to re-scan page');
-      }
-    } catch (err) {
-      setError('Error re-scanning page');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      console.log('Text copied to clipboard');
-    }).catch(err => {
-      console.error('Failed to copy text: ', err);
-    });
-  };
-
-  const downloadText = () => {
-    if (currentText) {
-      const blob = new Blob([currentText], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'extracted-text.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-  };
-
-  const exportAsText = () => {
-    if (currentSummarization?.summary && currentSummarization?.flashcards) {
-      downloadAsTxt(currentSummarization.summary, currentSummarization.flashcards, 'Study Material');
     }
   };
 
@@ -174,10 +114,6 @@ const Popup: React.FC = () => {
     applySaturationFilter(100);
   };
 
-  const truncateText = (text: string, maxLength: number = 100) => {
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-  };
-
   const renderTextStats = (processed: ProcessedText) => (
     <div className="text-xs text-gray-600 space-y-1 mb-2">
       <div className="flex justify-between">
@@ -206,58 +142,6 @@ const Popup: React.FC = () => {
     </div>
   );
 
-  const renderSummary = (summary: Summary) => (
-    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-3">
-      <div className="flex items-center mb-3">
-        <span className="text-2xl mr-2">📋</span>
-        <h4 className="font-semibold text-blue-800 text-sm">Summary</h4>
-        <div className="ml-auto flex items-center space-x-2">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-            summary.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-            summary.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-            'bg-red-100 text-red-700'
-          }`}>
-            {summary.difficulty}
-          </span>
-          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-            {Math.round(summary.confidence * 100)}% confidence
-          </span>
-        </div>
-      </div>
-      
-      <p className="text-sm text-blue-900 leading-relaxed mb-3 font-medium">
-        {summary.text}
-      </p>
-      
-      {summary.keyPoints.length > 0 && (
-        <div className="mb-3">
-          <h5 className="text-xs font-semibold text-blue-700 mb-2 flex items-center">
-            <span className="mr-1">💡</span>
-            Key Points:
-          </h5>
-          <ul className="space-y-1">
-            {summary.keyPoints.slice(0, 3).map((point, index) => (
-              <li key={index} className="text-xs text-blue-800 flex items-start">
-                <span className="text-blue-500 mr-2 mt-1">•</span>
-                <span className="leading-relaxed">{truncateText(point, 80)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      
-      {summary.topics.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {summary.topics.map((topic, index) => (
-            <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-              {topic}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="w-96 h-96 bg-white p-4 overflow-y-auto">
       <div className="mb-4">
@@ -267,19 +151,11 @@ const Popup: React.FC = () => {
         <p className="text-sm text-gray-600 mb-3">Extract & Learn</p>
         
         <button
-          onClick={extractCurrentPage}
+          onClick={startStudying}
           disabled={loading}
-          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
+          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg mb-3 transition-colors text-lg"
         >
-          {loading ? 'Summarizing...' : '📄 Summarize Page'}
-        </button>
-
-        <button
-          onClick={rescanPage}
-          disabled={loading}
-          className="w-full bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded mb-3 transition-colors"
-        >
-          {loading ? 'Re-scanning...' : '🔄 Re-scan Page'}
+          {loading ? '🧠 Processing...' : '🎯 Start Studying'}
         </button>
 
         {/* Saturation Control Section */}
@@ -348,102 +224,11 @@ const Popup: React.FC = () => {
 
       {currentText ? (
         <div className="mb-4 p-3 bg-gray-50 rounded border">
-          <h3 className="font-semibold text-gray-800 mb-2">Current Page Content</h3>
+          <h3 className="font-semibold text-gray-800 mb-2">Page Content</h3>
           {currentProcessed && renderTextStats(currentProcessed)}
           
-          {/* View Mode Toggle */}
-          {currentSummarization && (
-            <div className="mb-3">
-              <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode('summary')}
-                  className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${
-                    viewMode === 'summary'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="flex items-center justify-center">
-                    <span className="mr-1">📋</span>
-                    Summary
-                  </span>
-                </button>
-                <button
-                  onClick={() => setViewMode('flashcards')}
-                  className={`flex-1 py-2 px-3 text-sm font-medium transition-colors ${
-                    viewMode === 'flashcards'
-                      ? 'bg-green-500 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="flex items-center justify-center">
-                    <span className="mr-1">🎯</span>
-                    Flashcards ({currentSummarization.flashcards.length})
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {/* Content View */}
-          {viewMode === 'summary' && currentSummarization && (
-            <div>
-              {renderSummary(currentSummarization.summary)}
-              
-              {currentSummarization?.isFallback && (
-                <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                  <p className="text-yellow-700 text-xs flex items-center">
-                    <span className="mr-1">⚠️</span>
-                    Fallback flashcards shown (summary confidence was low or content unavailable)
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {viewMode === 'flashcards' && currentSummarization && (
-            <div className="text-center py-4">
-              <div className="text-3xl mb-2">🎯</div>
-              <h4 className="font-semibold text-gray-800 mb-2">Ready to Study?</h4>
-              <p className="text-sm text-gray-600 mb-3">
-                {currentSummarization.flashcards.length} flashcards generated from this content
-              </p>
-              <button
-                onClick={() => setShowFlashcards(true)}
-                className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-6 rounded transition-colors"
-              >
-                Start Studying
-              </button>
-            </div>
-          )}
-          
-          <div className="flex gap-2 mb-2 flex-wrap">
-            <button
-              onClick={() => copyToClipboard(currentText)}
-              className="text-blue-500 hover:text-blue-600 text-sm"
-            >
-              Copy Text
-            </button>
-            {currentText && (
-              <button
-                onClick={downloadText}
-                className="text-orange-500 hover:text-orange-600 text-sm"
-              >
-                📄 Download Text
-              </button>
-            )}
-            {currentSummarization?.summary && currentSummarization?.flashcards && (
-              <button
-                onClick={exportAsText}
-                className="text-indigo-500 hover:text-indigo-600 text-sm"
-              >
-                📁 Export as Text
-              </button>
-            )}
-          </div>
-          
           <p className="text-sm text-gray-700">
-            {truncateText(currentText, 150)}
+            {currentText.length > 150 ? currentText.substring(0, 150) + '...' : currentText}
           </p>
         </div>
       ) : !loading && !error && (
@@ -474,7 +259,7 @@ const Popup: React.FC = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <h4 className="font-medium text-blue-800 mb-2">🚀 Get Started</h4>
             <p className="text-sm text-blue-700 mb-3">
-              Click "📄 Summarize Page" to extract and learn from any webpage
+              Click "🎯 Start Studying" to extract and learn from any webpage
             </p>
             <div className="text-xs text-blue-600 space-y-1">
               <p>• 📖 Extract main content from articles</p>
@@ -492,10 +277,10 @@ const Popup: React.FC = () => {
         </div>
       )}
 
-      {/* Flashcard Viewer Modal */}
+      {/* Flashcard Overlay */}
       {showFlashcards && currentSummarization && (
-        <FlashcardViewer
-          flashcards={currentSummarization.flashcards}
+        <FlashcardOverlay
+          flashcards={generateFlashcardsFromSummary(currentSummarization.summary)}
           onClose={() => setShowFlashcards(false)}
         />
       )}

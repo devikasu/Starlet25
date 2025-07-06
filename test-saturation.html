@@ -226,7 +226,7 @@
                 if (mutation.type === 'childList') {
                     mutation.addedNodes.forEach((node) => {
                         if (node.nodeType === Node.ELEMENT_NODE) {
-                            const element = node as Element;
+                            const element = node;
                             if (element.id === 'starlet25-saturation-filter') {
                                 console.log('🎨 Saturation filter applied to page');
                             }

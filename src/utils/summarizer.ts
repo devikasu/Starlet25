@@ -503,6 +503,49 @@ export function formatFlashcards(flashcards: Flashcard[]): string {
   ).join('\n');
 }
 
+/**
+ * Generates simple flashcards from a summary for the simplified overlay.
+ * Returns an array of short note strings (1-2 sentences each).
+ */
+export function generateFlashcardsFromSummary(summary: Summary): string[] {
+  const flashcards: string[] = [];
+  
+  // Add the main summary as the first card
+  if (summary.text) {
+    flashcards.push(summary.text);
+  }
+  
+  // Add key points as individual cards
+  if (summary.keyPoints && summary.keyPoints.length > 0) {
+    summary.keyPoints.forEach(point => {
+      if (point.length > 10 && point.length < 200) {
+        flashcards.push(point);
+      }
+    });
+  }
+  
+  // If we don't have enough cards, create some from the summary text
+  if (flashcards.length < 3) {
+    const sentences = extractSentences(summary.text);
+    sentences.slice(0, 5).forEach(sentence => {
+      const simplified = simplify(sentence);
+      if (simplified.length > 20 && simplified.length < 150 && !flashcards.includes(simplified)) {
+        flashcards.push(simplified);
+      }
+    });
+  }
+  
+  // Ensure we have at least 3 cards
+  if (flashcards.length === 0) {
+    flashcards.push("This page contains information that can help with learning.");
+    flashcards.push("The content has been extracted and summarized for easy reading.");
+    flashcards.push("Use these notes to review and remember key points.");
+  }
+  
+  // Limit to 8 cards maximum for simplicity
+  return flashcards.slice(0, 8);
+}
+
 // --- Accessibility & Readability Helpers ---
 
 /**
