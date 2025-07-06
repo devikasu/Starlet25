@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed Saturation Test - Starlet25</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .color-section {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .red-section {
+            background: linear-gradient(45deg, #ff0000, #ff4444, #ff6666);
+            color: white;
+        }
+        
+        .green-section {
+            background: linear-gradient(45deg, #00ff00, #44ff44, #66ff66);
+            color: black;
+        }
+        
+        .blue-section {
+            background: linear-gradient(45deg, #0000ff, #4444ff, #6666ff);
+            color: white;
+        }
+        
+        .yellow-section {
+            background: linear-gradient(45deg, #ffff00, #ffff44, #ffff66);
+            color: black;
+        }
+        
+        .purple-section {
+            background: linear-gradient(45deg, #ff00ff, #ff44ff, #ff66ff);
+            color: white;
+        }
+        
+        .instructions {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .debug-info {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s ease;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+        
+        .test-button.success {
+            background: #28a745;
+        }
+        
+        .test-button.error {
+            background: #dc3545;
+        }
+        
+        .saturation-display {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .saturation-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .filter-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="status-indicator" id="status-indicator">
+        🎨 Ready
+    </div>
+    
+    <div class="container">
+        <h1>🎨 Fixed Saturation Test - Starlet25</h1>
+        
+        <div class="instructions">
+            <h3>✅ Fixed Issues:</h3>
+            <ul>
+                <li><strong>Multiple injection methods:</strong> Direct injection, message passing, and fallback approaches</li>
+                <li><strong>Better error handling:</strong> Comprehensive logging and fallback mechanisms</li>
+                <li><strong>Improved compatibility:</strong> Works on more websites and page types</li>
+                <li><strong>Real-time feedback:</strong> Visual indicators and console logging</li>
+            </ul>
+        </div>
+        
+        <div class="debug-info">
+            <strong>Debug Info:</strong><br>
+            Current URL: <span id="current-url"></span><br>
+            Extension Status: <span id="extension-status">Checking...</span><br>
+            Content Script Status: <span id="content-script-status">Checking...</span><br>
+            Current Saturation: <span id="current-saturation">100%</span><br>
+            Active Filter: <span id="active-filter">None</span>
+        </div>
+        
+        <div class="saturation-display">
+            <div class="saturation-value" id="saturation-display">100%</div>
+            <p>Current Saturation Level</p>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="test-button" onclick="testSaturation(50)">Test 50% Saturation</button>
+            <button class="test-button" onclick="testSaturation(150)">Test 150% Saturation</button>
+            <button class="test-button" onclick="testSaturation(200)">Test 200% Saturation</button>
+            <button class="test-button" onclick="testSaturation(100)">Reset to Normal</button>
+            <button class="test-button" onclick="checkExtensionStatus()">Check Extension</button>
+            <button class="test-button" onclick="checkCurrentFilter()">Check Current Filter</button>
+        </div>
+        
+        <div class="filter-info" id="filter-info">
+            <strong>Filter Status:</strong> No active saturation filter detected.
+        </div>
+        
+        <div class="color-section red-section">
+            <h2>🔴 Red Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section green-section">
+            <h2>🟢 Green Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section blue-section">
+            <h2>🔵 Blue Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section yellow-section">
+            <h2>🟡 Yellow Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section purple-section">
+            <h2>🟣 Purple Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+    </div>
+
+    <script>
+        // Update debug info
+        document.getElementById('current-url').textContent = window.location.href;
+        
+        // Update status indicator
+        function updateStatus(message, type = 'info') {
+            const indicator = document.getElementById('status-indicator');
+            indicator.textContent = message;
+            indicator.className = 'status-indicator';
+            if (type === 'success') indicator.style.background = '#28a745';
+            else if (type === 'error') indicator.style.background = '#dc3545';
+            else indicator.style.background = '#10b981';
+        }
+        
+        // Check if extension is installed
+        function checkExtensionStatus() {
+            console.log('🔍 Checking Starlet25 extension status...');
+            updateStatus('🔍 Checking...', 'info');
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage('starlet25@extension', { action: 'PING' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.log('❌ Extension not found or not responding:', chrome.runtime.lastError.message);
+                        document.getElementById('extension-status').textContent = 'Not found or not responding';
+                        updateStatus('❌ Extension not found', 'error');
+                    } else {
+                        console.log('✅ Extension found and responding');
+                        document.getElementById('extension-status').textContent = 'Found and responding';
+                        updateStatus('✅ Extension found', 'success');
+                    }
+                });
+            } else {
+                console.log('❌ Chrome extension API not available');
+                document.getElementById('extension-status').textContent = 'Chrome API not available';
+                updateStatus('❌ Chrome API not available', 'error');
+            }
+        }
+        
+        // Check current filter status
+        function checkCurrentFilter() {
+            const htmlFilter = document.documentElement.style.filter;
+            const bodyFilter = document.body.style.filter;
+            const styleFilter = document.getElementById('starlet25-saturation-filter');
+            
+            let filterInfo = '';
+            if (htmlFilter) filterInfo += `HTML: ${htmlFilter} `;
+            if (bodyFilter) filterInfo += `Body: ${bodyFilter} `;
+            if (styleFilter) filterInfo += `Style element: present `;
+            
+            if (!filterInfo) {
+                filterInfo = 'No active filter detected';
+            }
+            
+            document.getElementById('active-filter').textContent = filterInfo;
+            document.getElementById('filter-info').innerHTML = `<strong>Filter Status:</strong> ${filterInfo}`;
+            
+            console.log('🎨 Current filter status:', { htmlFilter, bodyFilter, styleFilter: !!styleFilter });
+        }
+        
+        // Test saturation manually
+        function testSaturation(saturation) {
+            console.log(`🎨 Testing saturation: ${saturation}%`);
+            updateStatus(`🎨 Testing ${saturation}%`, 'info');
+            
+            // Update display
+            document.getElementById('saturation-display').textContent = saturation + '%';
+            document.getElementById('current-saturation').textContent = saturation + '%';
+            
+            // Apply saturation filter directly to test
+            const htmlElement = document.documentElement;
+            const bodyElement = document.body;
+            
+            // Remove existing style element
+            const existingFilter = document.getElementById('starlet25-saturation-filter');
+            if (existingFilter) {
+                existingFilter.remove();
+            }
+            
+            if (saturation === 100) {
+                htmlElement.style.filter = '';
+                bodyElement.style.filter = '';
+                console.log('🎨 Removed saturation filter (100%)');
+                updateStatus('✅ Reset to normal', 'success');
+            } else {
+                // Try multiple methods
+                try {
+                    // Method 1: Style element
+                    const styleElement = document.createElement('style');
+                    styleElement.id = 'starlet25-saturation-filter';
+                    styleElement.textContent = `
+                        html {
+                            filter: saturate(${saturation}%) !important;
+                        }
+                    `;
+                    document.head.appendChild(styleElement);
+                    console.log(`🎨 Applied saturation filter via style: ${saturation}%`);
+                } catch (error) {
+                    console.warn('🎨 Style method failed, using inline:', error);
+                    htmlElement.style.filter = `saturate(${saturation}%)`;
+                }
+                
+                updateStatus(`✅ Applied ${saturation}%`, 'success');
+            }
+            
+            // Check filter status
+            setTimeout(checkCurrentFilter, 100);
+            
+            // Also try to send message to extension if available
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage('starlet25@extension', {
+                    action: 'APPLY_SATURATION_FILTER',
+                    saturation: saturation
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.log('❌ Could not send message to extension:', chrome.runtime.lastError.message);
+                    } else {
+                        console.log('✅ Message sent to extension successfully');
+                    }
+                });
+            }
+        }
+        
+        // Listen for messages from the extension
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+            chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+                console.log('📨 Received message from extension:', message);
+                
+                if (message.action === 'APPLY_SATURATION_FILTER') {
+                    console.log(`🎨 Content script received saturation command: ${message.saturation}%`);
+                    testSaturation(message.saturation);
+                    sendResponse({ success: true });
+                }
+            });
+            
+            document.getElementById('content-script-status').textContent = 'Message listener attached';
+        } else {
+            document.getElementById('content-script-status').textContent = 'Chrome API not available';
+        }
+        
+        // Check extension status on load
+        setTimeout(checkExtensionStatus, 1000);
+        
+        // Check current filter on load
+        setTimeout(checkCurrentFilter, 500);
+        
+        console.log('🎨 Fixed Saturation Test Page Loaded');
+        console.log('🎨 Use the extension popup to test the saturation slider');
+        console.log('🎨 Or use the test buttons to manually test saturation');
+    </script>
+</body>
+</html> 

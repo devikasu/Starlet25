@@ -298,61 +298,110 @@ const Popup: React.FC = () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (!tab?.id) {
-        console.error('No active tab found for saturation filter');
+        console.error('🎨 No active tab found for saturation filter');
         return;
       }
 
       // Check if we're on a chrome:// page (which won't work)
       if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://'))) {
-        console.log('Cannot apply saturation filter to chrome:// pages');
+        console.log('🎨 Cannot apply saturation filter to chrome:// pages');
         return;
       }
 
-      // Inject content script if needed
+      console.log(`🎨 Applying saturation filter: ${saturationValue}% to tab ${tab.id}`);
+
+      // Try direct injection first (more reliable)
       try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: (saturation) => {
+            console.log('🎨 Direct saturation injection:', saturation + '%');
+            
+            // Remove existing filter
+            const existingFilter = document.getElementById('starlet25-saturation-filter');
+            if (existingFilter) {
+              existingFilter.remove();
+            }
+            
+            // Apply new filter
+            if (saturation !== 100) {
+              const styleElement = document.createElement('style');
+              styleElement.id = 'starlet25-saturation-filter';
+              styleElement.textContent = `
+                html {
+                  filter: saturate(${saturation}%) !important;
+                }
+              `;
+              document.head.appendChild(styleElement);
+              console.log('🎨 Saturation filter applied directly:', saturation + '%');
+            } else {
+              console.log('🎨 Saturation reset to normal (100%)');
+            }
+          },
+          args: [saturationValue]
+        });
+        
+        console.log(`🎨 Starlet25: Saturation filter applied directly: ${saturationValue}%`);
+        return;
+      } catch (directError) {
+        console.log('🎨 Direct injection failed, trying message passing:', directError);
+      }
+
+      // Fallback: Try message passing
+      try {
+        // Ensure content script is injected
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           files: ['assets/content.js'],
         });
-        console.log('🎨 Content script injected for saturation filter');
-      } catch (error) {
-        console.log('🎨 Content script already injected or injection failed:', error);
-      }
-
-      // Small delay to ensure content script is ready
-      setTimeout(() => {
-        // Send message to content script to apply saturation filter
-        chrome.tabs.sendMessage(tab.id!, {
-          action: 'APPLY_SATURATION_FILTER',
-          saturation: saturationValue
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn('🎨 Content script not ready for saturation filter:', chrome.runtime.lastError.message);
-            // Try injecting again and retry
-            chrome.scripting.executeScript({
-              target: { tabId: tab.id! },
-              files: ['assets/content.js'],
-            }).then(() => {
-              setTimeout(() => {
-                chrome.tabs.sendMessage(tab.id!, {
-                  action: 'APPLY_SATURATION_FILTER',
-                  saturation: saturationValue
-                }, (retryResponse) => {
-                  if (chrome.runtime.lastError) {
-                    console.error('🎨 Failed to apply saturation filter after retry:', chrome.runtime.lastError.message);
-                  } else if (retryResponse && retryResponse.success) {
-                    console.log(`🎨 Starlet25: Saturation filter applied: ${saturationValue}%`);
-                  }
-                });
-              }, 100);
-            });
-          } else if (response && response.success) {
-            console.log(`🎨 Starlet25: Saturation filter applied: ${saturationValue}%`);
-          } else {
-            console.error('🎨 Failed to apply saturation filter - response:', response);
-          }
+        
+        // Wait a bit for script to initialize
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Send message
+        const response = await new Promise((resolve, reject) => {
+          chrome.tabs.sendMessage(tab.id!, {
+            action: 'APPLY_SATURATION_FILTER',
+            saturation: saturationValue
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(response);
+            }
+          });
         });
-      }, 50);
+        
+        if (response && (response as any).success) {
+          console.log(`🎨 Starlet25: Saturation filter applied via message: ${saturationValue}%`);
+        } else {
+          console.error('🎨 Failed to apply saturation filter - response:', response);
+        }
+      } catch (messageError) {
+        console.error('🎨 Message passing failed:', messageError);
+        
+        // Final fallback: Try direct injection again with different approach
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: (saturation) => {
+              // Apply filter directly to body as fallback
+              if (saturation === 100) {
+                document.body.style.filter = '';
+                document.documentElement.style.filter = '';
+              } else {
+                document.body.style.filter = `saturate(${saturation}%)`;
+                document.documentElement.style.filter = `saturate(${saturation}%)`;
+              }
+              console.log('🎨 Fallback saturation applied:', saturation + '%');
+            },
+            args: [saturationValue]
+          });
+          console.log(`🎨 Starlet25: Fallback saturation applied: ${saturationValue}%`);
+        } catch (fallbackError) {
+          console.error('🎨 All saturation methods failed:', fallbackError);
+        }
+      }
     } catch (error) {
       console.error('🎨 Error applying saturation filter:', error);
     }

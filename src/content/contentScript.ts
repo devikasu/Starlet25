@@ -413,20 +413,40 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         existingFilter.remove();
       }
       
+      // Also clear any inline filters
+      document.documentElement.style.filter = '';
+      document.body.style.filter = '';
+      
       // Only apply filter if saturation is not 100% (normal)
       if (saturation !== 100) {
-        // Create new style element for saturation filter
-        const styleElement = document.createElement('style');
-        styleElement.id = 'starlet25-saturation-filter';
-        styleElement.textContent = `
-          html {
-            filter: saturate(${saturation}%) !important;
-          }
-        `;
+        // Try multiple approaches for better compatibility
         
-        // Add the style to the document head
-        document.head.appendChild(styleElement);
-        console.log('🎨 Starlet25: Saturation filter applied successfully');
+        // Method 1: Style element (preferred)
+        try {
+          const styleElement = document.createElement('style');
+          styleElement.id = 'starlet25-saturation-filter';
+          styleElement.textContent = `
+            html {
+              filter: saturate(${saturation}%) !important;
+            }
+          `;
+          document.head.appendChild(styleElement);
+          console.log('🎨 Starlet25: Saturation filter applied via style element');
+        } catch (styleError) {
+          console.warn('🎨 Style element method failed, trying inline:', styleError);
+          
+          // Method 2: Inline style on html element
+          try {
+            document.documentElement.style.filter = `saturate(${saturation}%)`;
+            console.log('🎨 Starlet25: Saturation filter applied via inline style');
+          } catch (inlineError) {
+            console.warn('🎨 Inline style method failed, trying body:', inlineError);
+            
+            // Method 3: Inline style on body element
+            document.body.style.filter = `saturate(${saturation}%)`;
+            console.log('🎨 Starlet25: Saturation filter applied via body style');
+          }
+        }
       } else {
         console.log('🎨 Starlet25: Saturation reset to normal (100%)');
       }
