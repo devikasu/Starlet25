@@ -12,6 +12,14 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "commands": {
+    "start-voice-assistant": {
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
+      "description": "Start voice assistant for blind users"
+    }
+  },
   "background": {
     "service_worker": "assets/background.js",
     "type": "module"

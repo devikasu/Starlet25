@@ -26,6 +26,7 @@ const Popup: React.FC = () => {
   const [accessibilityEnabled, setAccessibilityEnabled] = useState<boolean>(false);
   const [accessibilityLoading, setAccessibilityLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'summary' | 'flashcards'>('summary');
+  const [saturation, setSaturation] = useState<number>(100);
 
   useEffect(() => {
     loadStoredTexts();
@@ -286,6 +287,79 @@ const Popup: React.FC = () => {
     });
   };
 
+  const applySaturationFilter = async (saturationValue: number) => {
+    try {
+      // Get the active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab?.id) {
+        console.error('No active tab found for saturation filter');
+        return;
+      }
+
+      // Check if we're on a chrome:// page (which won't work)
+      if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://'))) {
+        console.log('Cannot apply saturation filter to chrome:// pages');
+        return;
+      }
+
+      // Inject content script if needed
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['assets/content.js'],
+        });
+      } catch (error) {
+        console.log('Content script already injected or injection failed:', error);
+      }
+
+      // Send message to content script to apply saturation filter
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'APPLY_SATURATION_FILTER',
+        saturation: saturationValue
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Content script not ready for saturation filter:', chrome.runtime.lastError.message);
+        } else if (response && response.success) {
+          console.log(`🎨 Starlet25: Saturation filter applied: ${saturationValue}%`);
+        } else {
+          console.error('Failed to apply saturation filter - response:', response);
+        }
+      });
+    } catch (error) {
+      console.error('Error applying saturation filter:', error);
+    }
+  };
+
+  const handleSaturationChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newSaturation = parseInt(event.target.value);
+    setSaturation(newSaturation);
+    // Apply filter immediately for smooth real-time updates
+    applySaturationFilter(newSaturation);
+  };
+
+  // Add a debounced version for smoother performance
+  const debouncedSaturationChange = (() => {
+    let timeoutId: number;
+    return (event: React.ChangeEvent<HTMLInputElement>) => {
+      const newSaturation = parseInt(event.target.value);
+      setSaturation(newSaturation);
+      
+      // Clear previous timeout
+      clearTimeout(timeoutId);
+      
+      // Apply filter with a small delay for smooth movement
+      timeoutId = setTimeout(() => {
+        applySaturationFilter(newSaturation);
+      }, 50); // 50ms delay for smooth updates
+    };
+  })();
+
+  const resetSaturation = () => {
+    setSaturation(100);
+    applySaturationFilter(100);
+  };
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
@@ -377,7 +451,14 @@ const Popup: React.FC = () => {
   return (
     <div className="w-96 h-96 bg-white p-4 overflow-y-auto">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-gray-800 mb-2">Starlet25</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-xl font-bold text-gray-800">Starlet25</h1>
+          <div className="flex gap-1">
+            <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              <kbd className="bg-white px-1 rounded text-xs border">Alt+Shift+V</kbd>
+            </div>
+          </div>
+        </div>
         <p className="text-sm text-gray-600 mb-3">Extract & Learn</p>
         
         <button
@@ -403,6 +484,38 @@ const Popup: React.FC = () => {
         >
           🚀 Quick Summarize
         </button>
+
+        {/* Voice Assistant Section */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-800">Voice Assistant</h3>
+            <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+              <span className="mr-1">🎤</span>
+              Alt+Shift+V
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-600 mb-3">
+            Full voice control for blind users. Press Alt+Shift+V to start.
+          </p>
+          
+          <div className="bg-purple-50 border border-purple-200 rounded p-3 text-xs text-purple-700">
+            <div className="flex items-start">
+              <span className="mr-2">🎤</span>
+              <div>
+                <p className="font-medium mb-1">Voice Commands Available:</p>
+                <ul className="space-y-1">
+                  <li>• "summarize page" - Extract and summarize content</li>
+                  <li>• "read flashcards" - Read generated flashcards aloud</li>
+                  <li>• "read summary" - Read page summary aloud</li>
+                  <li>• "toggle accessibility" - Turn accessibility on/off</li>
+                  <li>• "help" - List all available commands</li>
+                  <li>• "stop" - Stop current speech or listening</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Accessibility Section */}
         <div className="border-t border-gray-200 pt-4 mb-4">
@@ -448,10 +561,94 @@ const Popup: React.FC = () => {
                 <div>
                   <p className="font-medium mb-1">Accessibility is active!</p>
                   <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+N</kbd> on any page to read content aloud.</p>
+                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+Shift+V</kbd> to start voice assistant.</p>
                 </div>
               </div>
             </div>
           )}
+          
+          {!accessibilityEnabled && (
+            <div className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600">
+              <div className="flex items-start">
+                <span className="mr-2">⌨️</span>
+                <div>
+                  <p className="font-medium mb-1">Keyboard Shortcuts</p>
+                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+N</kbd> to read content aloud (when accessibility enabled).</p>
+                  <p>Press <kbd className="bg-white px-1 rounded text-xs border">Alt+Shift+V</kbd> to start voice assistant.</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Saturation Control Section */}
+        <div className="border-t border-gray-200 pt-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-800">Color Saturation</h3>
+            <div className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+              <span className="mr-1">🎨</span>
+              {saturation}%
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-600 mb-3">
+            Adjust the color saturation of the current webpage for better visibility
+          </p>
+          
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <span className="text-xs text-gray-500 w-8">0%</span>
+              <input
+                type="range"
+                min="0"
+                max="200"
+                value={saturation}
+                onChange={debouncedSaturationChange}
+                onInput={handleSaturationChange}
+                disabled={false}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                style={{
+                  background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${saturation/2}%, #f3f4f6 ${saturation/2}%, #f3f4f6 100%)`
+                }}
+              />
+              <span className="text-xs text-gray-500 w-8">200%</span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-600">
+                {saturation < 100 ? 'Desaturated' : saturation > 100 ? 'Oversaturated' : 'Normal'}
+              </div>
+              <button
+                onClick={resetSaturation}
+                disabled={saturation === 100}
+                className="text-xs text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+              >
+                Reset to 100%
+              </button>
+            </div>
+            
+            {false && (
+              <div className="flex items-center justify-center text-xs text-orange-600">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-500 mr-2"></div>
+                Applying filter...
+              </div>
+            )}
+          </div>
+          
+          <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
+            <div className="flex items-start">
+              <span className="mr-2">💡</span>
+              <div>
+                <p className="font-medium mb-1">Saturation Tips:</p>
+                <ul className="space-y-1">
+                  <li>• <strong>0-50%:</strong> Grayscale to muted colors (good for reading)</li>
+                  <li>• <strong>100%:</strong> Normal colors (default)</li>
+                  <li>• <strong>150-200%:</strong> Vibrant colors (good for visual appeal)</li>
+                  <li>• <strong>Reset:</strong> Returns to normal 100% saturation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
 
         {loading && (

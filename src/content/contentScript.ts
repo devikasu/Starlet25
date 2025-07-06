@@ -3,6 +3,13 @@
 
 console.log('🔊 Starlet25 content script loaded. Waiting for Alt+N...');
 
+// Import voice assistant
+import { voiceAssistant } from '../utils/voiceAssistant';
+
+// Log voice assistant initialization
+console.log('🎤 Starlet25: Voice assistant imported:', !!voiceAssistant);
+console.log('🎤 Starlet25: Voice assistant supported:', voiceAssistant.isSupported());
+
 interface ExtractedText {
   type: 'PAGE_TEXT';
   text: string;
@@ -370,6 +377,66 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === 'GET_ACCESSIBILITY_STATUS') {
     sendResponse({ enabled: accessibilityEnabled });
   }
+  
+  // Handle voice assistant start
+  if (request.action === 'START_VOICE_ASSISTANT') {
+    console.log('🎤 Starlet25: Received START_VOICE_ASSISTANT command in content script');
+    try {
+      console.log('🎤 Starlet25: voiceAssistant object:', voiceAssistant);
+      console.log('🎤 Starlet25: voiceAssistant.isSupported():', voiceAssistant.isSupported());
+      
+      if (voiceAssistant.isSupported()) {
+        console.log('🎤 Starlet25: Voice assistant is supported, calling startListening()');
+        voiceAssistant.startListening();
+        console.log('🎤 Starlet25: startListening() called successfully');
+        sendResponse({ success: true });
+      } else {
+        console.error('🎤 Starlet25: Voice assistant not supported');
+        sendResponse({ success: false, error: 'Voice assistant not supported' });
+      }
+    } catch (error) {
+      console.error('🎤 Starlet25: Error starting voice assistant:', error);
+      sendResponse({ success: false, error: 'Failed to start voice assistant' });
+    }
+  }
+  
+  // Handle saturation filter
+  if (request.action === 'APPLY_SATURATION_FILTER') {
+    console.log('🎨 Starlet25: Received APPLY_SATURATION_FILTER command in content script');
+    try {
+      const { saturation } = request;
+      console.log('🎨 Starlet25: Applying saturation filter:', saturation + '%');
+      
+      // Remove existing saturation filter if any
+      const existingFilter = document.getElementById('starlet25-saturation-filter');
+      if (existingFilter) {
+        existingFilter.remove();
+      }
+      
+      // Only apply filter if saturation is not 100% (normal)
+      if (saturation !== 100) {
+        // Create new style element for saturation filter
+        const styleElement = document.createElement('style');
+        styleElement.id = 'starlet25-saturation-filter';
+        styleElement.textContent = `
+          html {
+            filter: saturate(${saturation}%) !important;
+          }
+        `;
+        
+        // Add the style to the document head
+        document.head.appendChild(styleElement);
+        console.log('🎨 Starlet25: Saturation filter applied successfully');
+      } else {
+        console.log('🎨 Starlet25: Saturation reset to normal (100%)');
+      }
+      
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error('🎨 Starlet25: Error applying saturation filter:', error);
+      sendResponse({ success: false, error: 'Failed to apply saturation filter' });
+    }
+  }
 });
 
 // Listen for storage changes
@@ -435,3 +502,19 @@ function testAccessibilityReading() {
 
 // Expose test function globally for debugging
 (window as any).testStarlet25Accessibility = testAccessibilityReading;
+
+// Expose voice assistant test function globally for debugging
+(window as any).testStarlet25VoiceAssistant = () => {
+  console.log('🎤 Starlet25: Testing voice assistant manually...');
+  console.log('🎤 Starlet25: voiceAssistant object:', voiceAssistant);
+  console.log('🎤 Starlet25: voiceAssistant.isSupported():', voiceAssistant.isSupported());
+  
+  if (voiceAssistant.isSupported()) {
+    console.log('🎤 Starlet25: Starting voice assistant test...');
+    voiceAssistant.startListening();
+    return 'Voice assistant started successfully';
+  } else {
+    console.error('🎤 Starlet25: Voice assistant not supported');
+    return 'Voice assistant not supported';
+  }
+};

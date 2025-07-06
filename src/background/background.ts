@@ -91,9 +91,17 @@ chrome.runtime.onMessage.addListener((message: ExtractedText, _sender, sendRespo
   }
 });
 
-// Handle messages from popup
+// Handle messages from popup and test pages
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    // Handle PING for testing
+  if (request.action === 'PING') {
+    console.log("🎤 Starlet25: Received PING request");
+    sendResponse({ success: true, message: 'Starlet25 extension is running' });
+    return true;
+  }
+
   if (request.action === 'GET_STORED_TEXTS') {
+    console.log("🎤 Starlet25: Received GET_STORED_TEXTS request from voice assistant");
     chrome.storage.local.get(null).then((data) => {
       const textEntries = Object.entries(data)
         .filter(([key]) => key.startsWith('page_text_'))
@@ -103,6 +111,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         }))
         .sort((a, b) => b.timestamp - a.timestamp);
       
+      console.log("🎤 Starlet25: Retrieved stored texts count:", textEntries.length);
       sendResponse({ texts: textEntries });
     });
     return true; // Keep message channel open for async response
@@ -119,14 +128,17 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'EXTRACT_CURRENT_PAGE') {
+    console.log("🎤 Starlet25: Received EXTRACT_CURRENT_PAGE request from voice assistant");
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const tab = tabs[0];
       if (!tab?.id) {
+        console.error("🎤 Starlet25: No active tab found for EXTRACT_CURRENT_PAGE");
         sendResponse({ success: false, error: 'No active tab found' });
         return;
       }
 
       try {
+        console.log("🎤 Starlet25: Injecting content script for extraction");
         await injectContentScript(tab.id);
 
         chrome.tabs.sendMessage(tab.id, { action: "EXTRACT_TEXT" }, (response) => {
@@ -134,7 +146,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
             console.warn("⚠️ Starlet25: Content script not ready", chrome.runtime.lastError.message);
             sendResponse({ success: false, error: 'Content script not ready' });
           } else if (response && response.text) {
-            console.log("✅ Starlet25: Got response", response);
+            console.log("✅ Starlet25: Got response from content script", response);
             const processed = processExtractedText(response.text);
             const summarization = summarizeText(response.text);
             const extractedData: ExtractedText = {
@@ -145,6 +157,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
               timestamp: Date.now()
             };
             storeExtractedText(extractedData);
+            console.log("🎤 Starlet25: Sending successful response to voice assistant");
             sendResponse({ 
               success: true, 
               text: response.text, 
@@ -152,6 +165,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
               summarization: summarization
             });
           } else {
+            console.log("🎤 Starlet25: No text extracted from content script");
             sendResponse({ success: false, error: 'No text extracted' });
           }
         });
@@ -190,6 +204,40 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
             sendResponse({ success: false, error: 'Content script not responding' });
           } else if (response && response.success) {
             console.log(`✅ Starlet25: Accessibility ${enabled ? 'enabled' : 'disabled'} successfully`);
+            
+            // Play audio cue when accessibility is enabled
+            if (enabled && tab.id) {
+              chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => {
+                  // Generate a pleasant "ding" sound using Web Audio API
+                  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                  const audioContext = new AudioContextClass();
+                  
+                  // Create oscillator for the ding sound
+                  const oscillator = audioContext.createOscillator();
+                  const gainNode = audioContext.createGain();
+                  
+                  // Connect nodes
+                  oscillator.connect(gainNode);
+                  gainNode.connect(audioContext.destination);
+                  
+                  // Configure the sound
+                  oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start at 800Hz
+                  oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1); // Rise to 1200Hz
+                  
+                  // Configure volume envelope
+                  gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                  gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05); // Quick attack
+                  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3); // Decay
+                  
+                  // Start and stop the sound
+                  oscillator.start(audioContext.currentTime);
+                  oscillator.stop(audioContext.currentTime + 0.3);
+                }
+              });
+            }
+            
             sendResponse({ success: true });
           } else {
             console.error('❌ Starlet25: Failed to toggle accessibility - no response');
@@ -209,6 +257,46 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Starlet25: Extension installed');
 });
+
+// Handle keyboard shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === "start-voice-assistant") {
+    console.log("🎤 Starlet25: Alt+Shift+V received in background script");
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      console.log("🎤 Starlet25: Active tab found:", tab?.id, tab?.url);
+      
+      if (tab?.id) {
+        try {
+          console.log("🎤 Starlet25: Injecting content script...");
+          await injectContentScript(tab.id);
+          console.log("🎤 Starlet25: Content script injected, sending START_VOICE_ASSISTANT message");
+          
+          chrome.tabs.sendMessage(tab.id, {
+            action: "START_VOICE_ASSISTANT"
+          }, (response) => {
+            console.log("🎤 Starlet25: Received response from content script:", response);
+            if (chrome.runtime.lastError) {
+              console.warn("⚠️ Starlet25: Content script not ready for voice assistant", chrome.runtime.lastError.message);
+            } else if (response && response.success) {
+              console.log("✅ Starlet25: Voice assistant started successfully");
+            } else {
+              console.error('❌ Starlet25: Failed to start voice assistant - response:', response);
+            }
+          });
+        } catch (err) {
+          console.error("❌ Starlet25: Error starting voice assistant", err);
+        }
+      } else {
+        console.error("❌ Starlet25: No active tab found");
+      }
+    } catch (error) {
+      console.error("❌ Starlet25: Error handling voice assistant shortcut", error);
+    }
+  }
+});
+
+
 
 // Handle tab updates to extract text on page changes
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {

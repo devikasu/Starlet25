@@ -14,6 +14,10 @@ export default defineConfig({
         {
           src: 'public/icon.png',
           dest: '.'  // Also copy icon if needed
+        },
+        {
+          src: 'public/sounds',
+          dest: 'sounds'  // Copy sounds directory
         }
       ]
     })
