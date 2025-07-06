@@ -15,6 +15,7 @@ export interface Flashcard {
   type: 'definition' | 'concept' | 'fact' | 'process';
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
+  readingTime: string; // e.g., '3 sec'
 }
 
 export interface SummarizationResult {
@@ -53,7 +54,8 @@ const FALLBACK_FLASHCARDS: Flashcard[] = [
     answer: "This page contains general information relevant to the user. The content has been extracted but could not be automatically summarized.",
     type: 'concept',
     difficulty: 'easy',
-    tags: ['general', 'fallback']
+    tags: ['general', 'fallback'],
+    readingTime: '3 sec'
   },
   {
     id: 'fallback_2',
@@ -61,7 +63,8 @@ const FALLBACK_FLASHCARDS: Flashcard[] = [
     answer: "Extract text from web pages, summarize content, generate flashcards for learning, and analyze page content for better understanding.",
     type: 'concept',
     difficulty: 'easy',
-    tags: ['extension', 'fallback']
+    tags: ['extension', 'fallback'],
+    readingTime: '3 sec'
   },
   {
     id: 'fallback_3',
@@ -69,7 +72,8 @@ const FALLBACK_FLASHCARDS: Flashcard[] = [
     answer: "The extension identifies main content areas, removes navigation elements, and extracts clean text while avoiding ads, footers, and sidebars.",
     type: 'process',
     difficulty: 'medium',
-    tags: ['extraction', 'fallback']
+    tags: ['extraction', 'fallback'],
+    readingTime: '3 sec'
   },
   {
     id: 'fallback_4',
@@ -77,7 +81,8 @@ const FALLBACK_FLASHCARDS: Flashcard[] = [
     answer: "Articles, documentation, tutorials, blog posts, and any text-based content. The extension works best with structured, informative content.",
     type: 'fact',
     difficulty: 'easy',
-    tags: ['content', 'fallback']
+    tags: ['content', 'fallback'],
+    readingTime: '3 sec'
   },
   {
     id: 'fallback_5',
@@ -85,7 +90,8 @@ const FALLBACK_FLASHCARDS: Flashcard[] = [
     answer: "Click the 🔊 Speak Summary button to have the page summary read aloud using your browser's text-to-speech capabilities.",
     type: 'process',
     difficulty: 'easy',
-    tags: ['speech', 'fallback']
+    tags: ['speech', 'fallback'],
+    readingTime: '3 sec'
   },
   {
     id: 'fallback_6',
@@ -93,7 +99,8 @@ const FALLBACK_FLASHCARDS: Flashcard[] = [
     answer: "Definition cards explain terms, concept cards cover ideas, fact cards present information, and process cards describe how things work.",
     type: 'concept',
     difficulty: 'medium',
-    tags: ['flashcards', 'fallback']
+    tags: ['flashcards', 'fallback'],
+    readingTime: '3 sec'
   }
 ];
 
@@ -293,120 +300,76 @@ function generateFlashcards(text: string, topics: string[], difficulty: 'easy' |
 function generateQACards(text: string, topics: string[], difficulty: 'easy' | 'medium' | 'hard'): Flashcard[] {
   const cards: Flashcard[] = [];
   const sentences = extractSentences(text);
-  
-  // Generate definition cards for technical terms
-  const technicalTerms = TECHNICAL_TERMS.filter(term => 
-    text.toLowerCase().includes(term)
-  ).slice(0, 3);
-  
-  technicalTerms.forEach((term, index) => {
+
+  // Use only the first 4 sentences for Q&A cards
+  sentences.slice(0, 4).forEach((sentence, index) => {
+    const question = makeQuestion(sentence);
+    const answer = simplify(sentence);
     cards.push({
-      id: `qa_def_${index}`,
-      question: `What is ${term} and how is it used?`,
-      answer: generateDefinitionAnswer(term, text),
-      type: 'definition',
-      difficulty: difficulty,
-      tags: [...topics, 'definition', 'qa']
+      id: `qa_simple_${index}`,
+      question,
+      answer,
+      type: 'concept',
+      difficulty,
+      tags: [...topics, 'qa'],
+      readingTime: estimateReadingTime(answer)
     });
   });
-  
-  // Generate concept cards with better questions
-  const conceptSentences = sentences.filter(s => 
-    s.length > 40 && s.length < 120
-  ).slice(0, 2);
-  
-  conceptSentences.forEach((sentence, index) => {
-    const concept = extractConceptFromSentence(sentence);
-    if (concept) {
-      cards.push({
-        id: `qa_concept_${index}`,
-        question: `How would you explain ${concept} to someone new to this topic?`,
-        answer: sentence,
-        type: 'concept',
-        difficulty: difficulty,
-        tags: [...topics, 'concept', 'qa']
-      });
-    }
-  });
-  
-  // Generate process cards with step-by-step questions
-  const processSentences = sentences.filter(s => 
-    s.includes('step') || s.includes('process') || s.includes('method') || s.includes('procedure')
-  ).slice(0, 2);
-  
-  processSentences.forEach((sentence, index) => {
-    const process = extractProcessFromSentence(sentence);
-    if (process) {
-      cards.push({
-        id: `qa_process_${index}`,
-        question: `What are the key steps involved in ${process}?`,
-        answer: sentence,
-        type: 'process',
-        difficulty: difficulty,
-        tags: [...topics, 'process', 'qa']
-      });
-    }
-  });
-  
-  return cards;
+
+  // Add a definition card if a technical term is found
+  const technicalTerm = TECHNICAL_TERMS.find(term => text.toLowerCase().includes(term));
+  if (technicalTerm) {
+    const defAnswer = simplify(generateDefinitionAnswer(technicalTerm, text));
+    cards.push({
+      id: `qa_def_${technicalTerm}`,
+      question: `What is ${technicalTerm}?`,
+      answer: defAnswer,
+      type: 'definition',
+      difficulty,
+      tags: [...topics, 'definition', 'qa'],
+      readingTime: estimateReadingTime(defAnswer)
+    });
+  }
+
+  return cards.slice(0, 5); // Limit to 5 Q&A cards
 }
 
 function generateRevisionCards(text: string, topics: string[], difficulty: 'easy' | 'medium' | 'hard'): Flashcard[] {
   const cards: Flashcard[] = [];
+  const sentences = extractSentences(text);
+
+  // Use only the next 3 sentences for revision cards
+  sentences.slice(4, 7).forEach((sentence, index) => {
+    const question = makeQuestion(sentence);
+    const answer = simplify(sentence);
+    cards.push({
+      id: `rev_simple_${index}`,
+      question,
+      answer,
+      type: 'fact',
+      difficulty,
+      tags: [...topics, 'revision'],
+      readingTime: estimateReadingTime(answer)
+    });
+  });
+
+  // Add a keyword definition card if a keyword is found
   const words = extractWords(text);
-  
-  // Generate keyword cards
-  const keywords = words
-    .filter(word => word.length > 4 && TECHNICAL_TERMS.includes(word))
-    .slice(0, 4);
-  
-  keywords.forEach((keyword, index) => {
+  const keyword = words.find(word => TECHNICAL_TERMS.includes(word));
+  if (keyword) {
+    const defAnswer = simplify(generateShortDefinition(keyword));
     cards.push({
-      id: `rev_keyword_${index}`,
+      id: `rev_keyword_${keyword}`,
       question: `Define: ${keyword}`,
-      answer: generateShortDefinition(keyword),
+      answer: defAnswer,
       type: 'definition',
-      difficulty: difficulty,
-      tags: [...topics, 'keyword', 'revision']
+      difficulty,
+      tags: [...topics, 'keyword', 'revision'],
+      readingTime: estimateReadingTime(defAnswer)
     });
-  });
-  
-  // Generate fact cards with short questions
-  const factSentences = extractSentences(text).filter(s => 
-    s.includes('is') || s.includes('are') || s.includes('was') || s.includes('were')
-  ).slice(0, 3);
-  
-  factSentences.forEach((sentence, index) => {
-    const fact = extractFactFromSentence(sentence);
-    if (fact) {
-      cards.push({
-        id: `rev_fact_${index}`,
-        question: `What is ${fact}?`,
-        answer: sentence.substring(0, 100) + (sentence.length > 100 ? '...' : ''),
-        type: 'fact',
-        difficulty: difficulty,
-        tags: [...topics, 'fact', 'revision']
-      });
-    }
-  });
-  
-  // Generate quick concept cards
-  const conceptWords = words
-    .filter(word => word.length > 5 && !TECHNICAL_TERMS.includes(word))
-    .slice(0, 3);
-  
-  conceptWords.forEach((word, index) => {
-    cards.push({
-      id: `rev_concept_${index}`,
-      question: `Quick: ${word}`,
-      answer: `A key concept related to ${word} in this context.`,
-      type: 'concept',
-      difficulty: difficulty,
-      tags: [...topics, 'concept', 'revision']
-    });
-  });
-  
-  return cards;
+  }
+
+  return cards.slice(0, 3); // Limit to 3 revision cards
 }
 
 function generateShortDefinition(term: string): string {
@@ -534,6 +497,112 @@ export function formatSummary(summary: Summary): string {
 
 export function formatFlashcards(flashcards: Flashcard[]): string {
   return flashcards.map((card, index) => 
-    `Card ${index + 1} (${card.type}):\nQ: ${card.question}\nA: ${card.answer}\nTags: ${card.tags.join(', ')}\n`
+    `Card ${index + 1} (${card.type}):\nQ: ${card.question}\nA: ${card.answer}\nTags: ${card.tags.join(', ')}\nReading Time: ${card.readingTime}\n`
   ).join('\n');
+}
+
+// --- Accessibility & Readability Helpers ---
+
+/**
+ * Converts a sentence into a short, natural question for a flashcard.
+ */
+function makeQuestion(sentence: string): string {
+  // Heuristics for question generation
+  if (/\b(is|are|was|were|means|refers to|describes|defines)\b/i.test(sentence)) {
+    // Try to extract the subject and make a "What is ...?" question
+    const match = sentence.match(/^(.*?)\b(is|are|was|were|means|refers to|describes|defines)\b/i);
+    if (match && match[1]) {
+      return `What is ${match[1].trim()}?`;
+    }
+  }
+  // Fallback: turn statement into "What about ...?"
+  const firstWord = sentence.split(' ')[0];
+  if (firstWord && firstWord.length < 15) {
+    return `What about ${firstWord}?`;
+  }
+  // Default fallback
+  return 'What is this about?';
+}
+
+/**
+ * Simplifies a sentence to plain, speech-friendly English.
+ */
+function simplify(sentence: string): string {
+  // Common-sense rewrites
+  const replacements: [RegExp, string][] = [
+    [/utilizes?/gi, 'uses'],
+    [/initialization/gi, 'starting'],
+    [/implementation/gi, 'how it works'],
+    [/functionality/gi, 'feature'],
+    [/methodology/gi, 'method'],
+    [/individuals?/gi, 'people'],
+    [/commonly/gi, 'often'],
+    [/in order to/gi, 'to'],
+    [/prior to/gi, 'before'],
+    [/subsequent/gi, 'next'],
+    [/obtain/gi, 'get'],
+    [/demonstrates?/gi, 'shows'],
+    [/approximately/gi, 'about'],
+    [/assistance/gi, 'help'],
+    [/modification/gi, 'change'],
+    [/numerous/gi, 'many'],
+    [/various/gi, 'different'],
+    [/indicates?/gi, 'shows'],
+    [/facilitates?/gi, 'helps'],
+    [/commences?/gi, 'starts'],
+    [/terminates?/gi, 'ends'],
+    [/subsequently/gi, 'then'],
+    [/consequently/gi, 'so'],
+    [/therefore/gi, 'so'],
+    [/additionally/gi, 'also'],
+    [/approximately/gi, 'about'],
+    [/sufficient/gi, 'enough'],
+    [/insufficient/gi, 'not enough'],
+    [/advantageous/gi, 'helpful'],
+    [/disadvantageous/gi, 'not helpful'],
+    [/commonly/gi, 'often'],
+    [/frequently/gi, 'often'],
+    [/subsequent/gi, 'next'],
+    [/prior/gi, 'before'],
+    [/obtain/gi, 'get'],
+    [/demonstrate/gi, 'show'],
+    [/approximately/gi, 'about'],
+    [/assistance/gi, 'help'],
+    [/modification/gi, 'change'],
+    [/numerous/gi, 'many'],
+    [/various/gi, 'different'],
+    [/indicates?/gi, 'shows'],
+    [/facilitates?/gi, 'helps'],
+    [/commences?/gi, 'starts'],
+    [/terminates?/gi, 'ends'],
+    [/subsequently/gi, 'then'],
+    [/consequently/gi, 'so'],
+    [/therefore/gi, 'so'],
+    [/additionally/gi, 'also'],
+    [/approximately/gi, 'about'],
+    [/sufficient/gi, 'enough'],
+    [/insufficient/gi, 'not enough'],
+    [/advantageous/gi, 'helpful'],
+    [/disadvantageous/gi, 'not helpful'],
+  ];
+  let result = sentence;
+  for (const [pattern, replacement] of replacements) {
+    result = result.replace(pattern, replacement);
+  }
+  // Remove extra whitespace and keep it short
+  result = result.replace(/\s+/g, ' ').trim();
+  if (result.length > 120) {
+    result = result.slice(0, 117) + '...';
+  }
+  return result;
+}
+
+/**
+ * Estimates reading time for a string (for screen readers).
+ * Returns a string like '3 sec'.
+ */
+function estimateReadingTime(text: string): string {
+  const words = text.split(/\s+/).length;
+  const seconds = Math.max(1, Math.round(words / 3)); // 3 words/sec for screen readers
+  return `${seconds} sec`;
 }

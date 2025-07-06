@@ -136,13 +136,19 @@ const FlashcardViewer: React.FC<FlashcardViewerProps> = ({ flashcards, onClose }
               </span>
             </div>
             <div className="text-sm text-gray-500">
-              {currentCardIndex + 1} of {currentCards.length}
+              Card {currentCardIndex + 1} of {currentCards.length}
             </div>
+          </div>
+
+          {/* Reading Time */}
+          <div className="flex items-center mb-2 text-xs text-gray-600" aria-label={`Estimated reading time: ${currentCard.readingTime}`}>
+            <span className="mr-1" role="img" aria-label="Reading time">🕒</span>
+            <span>{currentCard.readingTime}</span>
           </div>
 
           {/* Question */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <h3 className="font-semibold text-blue-800 mb-2">Question:</h3>
+            <h3 className="font-semibold text-blue-800 mb-2">Q:</h3>
             <p className="text-blue-900 leading-relaxed">{currentCard.question}</p>
           </div>
 
@@ -153,14 +159,13 @@ const FlashcardViewer: React.FC<FlashcardViewerProps> = ({ flashcards, onClose }
               : 'bg-gray-50 border-gray-200'
           }`}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className={`font-semibold ${showAnswer ? 'text-green-800' : 'text-gray-600'}`}>
-                Answer:
-              </h3>
+              <h3 className={`font-semibold ${showAnswer ? 'text-green-800' : 'text-gray-600'}`}>A:</h3>
               <button
                 onClick={toggleAnswer}
                 className={`text-sm font-medium transition-colors ${
                   showAnswer ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-700'
                 }`}
+                aria-label={showAnswer ? 'Hide answer' : 'Show answer'}
               >
                 {showAnswer ? 'Hide Answer' : 'Show Answer'}
               </button>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Saturation Slider - Starlet25</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .color-section {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .red-section {
+            background: linear-gradient(45deg, #ff0000, #ff4444, #ff6666);
+            color: white;
+        }
+        
+        .green-section {
+            background: linear-gradient(45deg, #00ff00, #44ff44, #66ff66);
+            color: black;
+        }
+        
+        .blue-section {
+            background: linear-gradient(45deg, #0000ff, #4444ff, #6666ff);
+            color: white;
+        }
+        
+        .yellow-section {
+            background: linear-gradient(45deg, #ffff00, #ffff44, #ffff66);
+            color: black;
+        }
+        
+        .purple-section {
+            background: linear-gradient(45deg, #ff00ff, #ff44ff, #ff66ff);
+            color: white;
+        }
+        
+        .instructions {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .debug-info {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Starlet25 Saturation Slider Debug</h1>
+        
+        <div class="instructions">
+            <h3>Testing Instructions:</h3>
+            <ol>
+                <li>Open the Starlet25 extension popup</li>
+                <li>Move the saturation slider to different values</li>
+                <li>Watch the colors change on this page</li>
+                <li>Check the browser console for debug messages</li>
+                <li>Use the test buttons below to manually test</li>
+            </ol>
+        </div>
+        
+        <div class="debug-info">
+            <strong>Debug Info:</strong><br>
+            Current URL: <span id="current-url"></span><br>
+            Extension Status: <span id="extension-status">Checking...</span><br>
+            Content Script Status: <span id="content-script-status">Checking...</span>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="test-button" onclick="testSaturation(50)">Test 50% Saturation</button>
+            <button class="test-button" onclick="testSaturation(200)">Test 200% Saturation</button>
+            <button class="test-button" onclick="testSaturation(100)">Reset to Normal</button>
+            <button class="test-button" onclick="checkExtensionStatus()">Check Extension</button>
+        </div>
+        
+        <div class="color-section red-section">
+            <h2>🔴 Red Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section green-section">
+            <h2>🟢 Green Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section blue-section">
+            <h2>🔵 Blue Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section yellow-section">
+            <h2>🟡 Yellow Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+        
+        <div class="color-section purple-section">
+            <h2>🟣 Purple Section</h2>
+            <p>This section should change saturation when you move the slider in the extension popup.</p>
+        </div>
+    </div>
+
+    <script>
+        // Update debug info
+        document.getElementById('current-url').textContent = window.location.href;
+        
+        // Check if extension is installed
+        function checkExtensionStatus() {
+            console.log('🔍 Checking Starlet25 extension status...');
+            
+            // Try to send a message to the extension
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage('starlet25@extension', { action: 'PING' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.log('❌ Extension not found or not responding:', chrome.runtime.lastError.message);
+                        document.getElementById('extension-status').textContent = 'Not found or not responding';
+                    } else {
+                        console.log('✅ Extension found and responding');
+                        document.getElementById('extension-status').textContent = 'Found and responding';
+                    }
+                });
+            } else {
+                console.log('❌ Chrome extension API not available');
+                document.getElementById('extension-status').textContent = 'Chrome API not available';
+            }
+        }
+        
+        // Test saturation manually
+        function testSaturation(saturation) {
+            console.log(`🎨 Testing saturation: ${saturation}%`);
+            
+            // Apply saturation filter directly to test
+            const htmlElement = document.documentElement;
+            if (saturation === 100) {
+                htmlElement.style.filter = '';
+                console.log('🎨 Removed saturation filter (100%)');
+            } else {
+                htmlElement.style.filter = `saturate(${saturation}%)`;
+                console.log(`🎨 Applied saturation filter: ${saturation}%`);
+            }
+            
+            // Also try to send message to extension if available
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage('starlet25@extension', {
+                    action: 'APPLY_SATURATION_FILTER',
+                    saturation: saturation
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.log('❌ Could not send message to extension:', chrome.runtime.lastError.message);
+                    } else {
+                        console.log('✅ Message sent to extension successfully');
+                    }
+                });
+            }
+        }
+        
+        // Listen for messages from the extension
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+            chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+                console.log('📨 Received message from extension:', message);
+                
+                if (message.action === 'APPLY_SATURATION_FILTER') {
+                    console.log(`🎨 Content script received saturation command: ${message.saturation}%`);
+                    testSaturation(message.saturation);
+                    sendResponse({ success: true });
+                }
+            });
+            
+            document.getElementById('content-script-status').textContent = 'Message listener attached';
+        } else {
+            document.getElementById('content-script-status').textContent = 'Chrome API not available';
+        }
+        
+        // Check extension status on load
+        setTimeout(checkExtensionStatus, 1000);
+        
+        console.log('🎨 Starlet25 Saturation Debug Page Loaded');
+        console.log('🎨 Use the extension popup to test the saturation slider');
+        console.log('🎨 Or use the test buttons to manually test saturation');
+    </script>
+</body>
+</html> 

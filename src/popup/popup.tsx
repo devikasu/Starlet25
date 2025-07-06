@@ -309,25 +309,47 @@ const Popup: React.FC = () => {
           target: { tabId: tab.id },
           files: ['assets/content.js'],
         });
+        console.log('🎨 Content script injected for saturation filter');
       } catch (error) {
-        console.log('Content script already injected or injection failed:', error);
+        console.log('🎨 Content script already injected or injection failed:', error);
       }
 
-      // Send message to content script to apply saturation filter
-      chrome.tabs.sendMessage(tab.id, {
-        action: 'APPLY_SATURATION_FILTER',
-        saturation: saturationValue
-      }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.warn('Content script not ready for saturation filter:', chrome.runtime.lastError.message);
-        } else if (response && response.success) {
-          console.log(`🎨 Starlet25: Saturation filter applied: ${saturationValue}%`);
-        } else {
-          console.error('Failed to apply saturation filter - response:', response);
-        }
-      });
+      // Small delay to ensure content script is ready
+      setTimeout(() => {
+        // Send message to content script to apply saturation filter
+        chrome.tabs.sendMessage(tab.id!, {
+          action: 'APPLY_SATURATION_FILTER',
+          saturation: saturationValue
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('🎨 Content script not ready for saturation filter:', chrome.runtime.lastError.message);
+            // Try injecting again and retry
+            chrome.scripting.executeScript({
+              target: { tabId: tab.id! },
+              files: ['assets/content.js'],
+            }).then(() => {
+              setTimeout(() => {
+                chrome.tabs.sendMessage(tab.id!, {
+                  action: 'APPLY_SATURATION_FILTER',
+                  saturation: saturationValue
+                }, (retryResponse) => {
+                  if (chrome.runtime.lastError) {
+                    console.error('🎨 Failed to apply saturation filter after retry:', chrome.runtime.lastError.message);
+                  } else if (retryResponse && retryResponse.success) {
+                    console.log(`🎨 Starlet25: Saturation filter applied: ${saturationValue}%`);
+                  }
+                });
+              }, 100);
+            });
+          } else if (response && response.success) {
+            console.log(`🎨 Starlet25: Saturation filter applied: ${saturationValue}%`);
+          } else {
+            console.error('🎨 Failed to apply saturation filter - response:', response);
+          }
+        });
+      }, 50);
     } catch (error) {
-      console.error('Error applying saturation filter:', error);
+      console.error('🎨 Error applying saturation filter:', error);
     }
   };
 
@@ -337,23 +359,6 @@ const Popup: React.FC = () => {
     // Apply filter immediately for smooth real-time updates
     applySaturationFilter(newSaturation);
   };
-
-  // Add a debounced version for smoother performance
-  const debouncedSaturationChange = (() => {
-    let timeoutId: number;
-    return (event: React.ChangeEvent<HTMLInputElement>) => {
-      const newSaturation = parseInt(event.target.value);
-      setSaturation(newSaturation);
-      
-      // Clear previous timeout
-      clearTimeout(timeoutId);
-      
-      // Apply filter with a small delay for smooth movement
-      timeoutId = setTimeout(() => {
-        applySaturationFilter(newSaturation);
-      }, 50); // 50ms delay for smooth updates
-    };
-  })();
 
   const resetSaturation = () => {
     setSaturation(100);
@@ -603,7 +608,7 @@ const Popup: React.FC = () => {
                 min="0"
                 max="200"
                 value={saturation}
-                onChange={debouncedSaturationChange}
+                onChange={handleSaturationChange}
                 onInput={handleSaturationChange}
                 disabled={false}
                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
